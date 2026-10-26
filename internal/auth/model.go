@@ -10,7 +10,7 @@ type LoginRequestDTO struct {
 type SignupRequestDTO struct {
 	FullName string `json:"full_name" validate:"required"`
 	Email    string `json:"email" validate:"required"`
-	Password string `json:"password" validate:"required"`
+	Password string `json:"password" validate:"required,valid_password"`
 }
 
 type LoginResponseDTO struct {

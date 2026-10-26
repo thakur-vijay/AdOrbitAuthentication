@@ -43,6 +43,31 @@ func init() {
 
 		return id.Version() == 4
 	})
+
+	validate.RegisterValidation("valid_password", func(fl validator.FieldLevel) bool {
+		password := fl.Field().String()
+
+		if len(password) < 6 || len(password) > 128 {
+			return false
+		}
+
+		var hasLower, hasUpper, hasNumber, hasSymbol bool
+
+		for _, char := range password {
+			switch {
+			case char >= 'a' && char <= 'z':
+				hasLower = true
+			case char >= 'A' && char <= 'Z':
+				hasUpper = true
+			case char >= '0' && char <= '9':
+				hasNumber = true
+			default:
+				hasSymbol = true
+			}
+		}
+
+		return hasLower && hasUpper && hasNumber && hasSymbol
+	})
 }
 
 func Validator(dto any) error {

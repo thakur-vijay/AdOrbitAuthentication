@@ -58,6 +58,13 @@ func buildMessage(dto any, err error) error {
 		return &ValidationError{Message: fmt.Sprintf("%s of type %s must be less than or equal to %s", jsonName, fieldType.String(), fieldError.Param())}
 	case "lt":
 		return &ValidationError{Message: fmt.Sprintf("%s of type %s must be less than %s", jsonName, fieldType.String(), fieldError.Param())}
+	case "valid_password":
+		return &ValidationError{
+			Message: fmt.Sprintf(
+				"%s must be 6-16 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+				jsonName,
+			),
+		}
 	default:
 		return &ValidationError{Message: fmt.Sprintf("%s is invalid", jsonName)}
 	}
