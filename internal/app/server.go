@@ -14,6 +14,7 @@ import (
 func (a *App) Run(addr string) error {
 	server := &http.Server{
 		Addr:              addr,
+		Handler:           a.Router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

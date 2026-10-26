@@ -1,6 +1,11 @@
 package auth
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/adorbit/authentication/internal/apperrors"
+	"github.com/adorbit/authentication/internal/response"
+)
 
 type Handler struct {
 	service *Service
@@ -11,7 +16,12 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
-
+	var signupRequest SignupRequestDTO
+	if err := response.DecodeJSONAndValidate(r, &signupRequest); err != nil {
+		appError := apperrors.NewBadRequest(err.Error(), nil)
+		response.Write(w, appError.StatusCode, appError.Message)
+		return
+	}
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {

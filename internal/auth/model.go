@@ -7,6 +7,12 @@ type LoginRequestDTO struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type SignupRequestDTO struct {
+	FullName string `json:"full_name" validate:"required"`
+	Email    string `json:"email" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
 type LoginResponseDTO struct {
 	User         LoginUserDTO `json:"user"`
 	AccessToken  string       `json:"access_token"`

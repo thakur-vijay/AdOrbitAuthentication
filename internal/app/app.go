@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"net/http"
 
 	"github.com/adorbit/authentication/internal/apperrors"
 	"github.com/adorbit/authentication/internal/config"
@@ -10,8 +11,8 @@ import (
 )
 
 type App struct {
-	DB *sql.DB
-	// Router http.Handler
+	DB     *sql.DB
+	Router http.Handler
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -28,6 +29,7 @@ func New(cfg *config.Config) (*App, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	router := BuildRouter(db)
 
-	return &App{DB: db}, nil
+	return &App{DB: db, Router: router}, nil
 }
