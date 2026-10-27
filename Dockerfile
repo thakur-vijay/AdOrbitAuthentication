@@ -1,4 +1,4 @@
-FROM golang:1.27-alpine AS builder
+FROM golang:1.27.1-alpine3.24 AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
     -o /app/server ./cmd/server
 
-FROM alpine:3.22
+FROM alpine:3.24
 
 WORKDIR /app
 
