@@ -3,10 +3,10 @@ package database
 import (
 	"database/sql"
 
-	"github.com/adorbit/authentication/internal/apperrors"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/thakur-vijay/adorbit-go/apperrors"
 )
 
 func Migrate(db *sql.DB, databseURL string) error {

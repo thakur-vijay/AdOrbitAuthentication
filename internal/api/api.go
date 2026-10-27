@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/adorbit/authentication/internal/auth"
-	"github.com/adorbit/authentication/internal/middleware"
+	"github.com/thakur-vijay/adorbit-go/middleware"
 )
 
 const v1Prefix = "/api/v1"

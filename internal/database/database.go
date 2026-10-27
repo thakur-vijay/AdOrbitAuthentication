@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/adorbit/authentication/internal/apperrors"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/thakur-vijay/adorbit-go/apperrors"
 )
 
 func Connect(ctx context.Context, databaseURL string) (*sql.DB, error) {

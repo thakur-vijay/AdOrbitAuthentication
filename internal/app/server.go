@@ -50,9 +50,9 @@ func (a *App) Close() error {
 		return nil
 	}
 
-	// if a.Limiters != nil {
-	// 	a.Limiters.Close()
-	// }
+	if a.cleanup != nil {
+		a.cleanup()
+	}
 
 	if a.DB != nil {
 		return a.DB.Close()

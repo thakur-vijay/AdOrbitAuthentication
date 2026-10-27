@@ -6,31 +6,42 @@ import (
 
 	"github.com/adorbit/authentication/internal/api"
 	"github.com/adorbit/authentication/internal/auth"
-	"github.com/adorbit/authentication/internal/middleware"
+	"github.com/adorbit/authentication/internal/grpcserver"
 	"github.com/adorbit/authentication/internal/sessions"
+	"github.com/thakur-vijay/adorbit-go/authclient"
+	"github.com/thakur-vijay/adorbit-go/middleware"
 )
 
-func BuildRouter(db *sql.DB) http.Handler {
-
+func BuildRouter(db *sql.DB) (http.Handler, func(), error) {
 	sessionRepository := sessions.NewRepository(db)
 	sessionService := sessions.NewService(sessionRepository)
 
-	// Auth
+	grpcServer, _, err := grpcserver.Start("127.0.0.1:9090", sessionService)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	conn, err := authclient.Dial("127.0.0.1:9090")
+	if err != nil {
+		grpcServer.Stop()
+		return nil, nil, err
+	}
+
+	authValidator := authclient.New(conn)
+	authMiddleware := middleware.NewAuthMiddleware(authValidator)
+
 	authService := auth.NewService(sessionService)
 	authHandler := auth.NewHandler(authService)
 
-	authMiddleware := middleware.NewAuthMiddleware(sessionService)
-
-	// Router
 	router := api.NewRouter(api.Dependencies{
 		AuthHandler:    authHandler,
 		AuthMiddleware: authMiddleware,
 	})
-	return router
-	// // Global Middleware
-	// return ratelimit.PolicyMiddleware(
-	// 	limiters.Default,
-	// 	limiters.AuthRefresh,
-	// 	limiters.SocialLogin,
-	// )(router)
+
+	cleanup := func() {
+		_ = conn.Close()
+		grpcServer.GracefulStop()
+	}
+
+	return router, cleanup, nil
 }

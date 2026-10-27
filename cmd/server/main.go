@@ -30,4 +30,5 @@ func main() {
 	if err := application.Run(cfg.Port); err != nil {
 		log.Fatal(err)
 	}
+
 }

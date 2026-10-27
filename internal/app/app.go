@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/adorbit/authentication/internal/apperrors"
 	"github.com/adorbit/authentication/internal/config"
 	"github.com/adorbit/authentication/internal/database"
+	"github.com/thakur-vijay/adorbit-go/apperrors"
 )
 
 type App struct {
-	DB     *sql.DB
-	Router http.Handler
+	DB      *sql.DB
+	Router  http.Handler
+	cleanup func()
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -29,7 +30,16 @@ func New(cfg *config.Config) (*App, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	router := BuildRouter(db)
 
-	return &App{DB: db, Router: router}, nil
+	router, cleanup, err := BuildRouter(db)
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	return &App{
+		DB:      db,
+		Router:  router,
+		cleanup: cleanup,
+	}, nil
 }

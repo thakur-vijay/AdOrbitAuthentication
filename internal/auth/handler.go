@@ -3,8 +3,8 @@ package auth
 import (
 	"net/http"
 
-	"github.com/adorbit/authentication/internal/apperrors"
-	"github.com/adorbit/authentication/internal/response"
+	"github.com/thakur-vijay/adorbit-go/apperrors"
+	"github.com/thakur-vijay/adorbit-go/response"
 )
 
 type Handler struct {
