@@ -27,6 +27,14 @@ func Load() (*Config, error) {
 		return nil, errors.New("DATABASE_URL is not set")
 	}
 
+	if cfg.JWTPrivateKey == "" {
+		return nil, errors.New("JWT_PRIVATE_KEY is not set")
+	}
+
+	if cfg.JWTPublicKey == "" {
+		return nil, errors.New("JWT_PUBLIC_KEY is not set")
+	}
+
 	return cfg, nil
 }
 
