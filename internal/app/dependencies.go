@@ -6,42 +6,58 @@ import (
 
 	"github.com/adorbit/authentication/internal/api"
 	"github.com/adorbit/authentication/internal/auth"
-	"github.com/adorbit/authentication/internal/grpcserver"
-	"github.com/adorbit/authentication/internal/sessions"
-	"github.com/thakur-vijay/adorbit-go/authclient"
-	"github.com/thakur-vijay/adorbit-go/middleware"
+	"github.com/adorbit/authentication/internal/jwt"
 )
 
-func BuildRouter(db *sql.DB) (http.Handler, func(), error) {
-	sessionRepository := sessions.NewRepository(db)
-	sessionService := sessions.NewService(sessionRepository)
+func BuildRouter(db *sql.DB) (http.Handler, error) {
+	// sessionRepository := sessions.NewRepository(db)
+	// sessionService := sessions.NewService(sessionRepository)
 
-	grpcServer, _, err := grpcserver.Start("127.0.0.1:9090", sessionService)
+	jwtRepository := jwt.NewRepository(db)
+
+	privateKey, err := jwt.LoadPrivateKey("keys/private.pem")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	conn, err := authclient.Dial("127.0.0.1:9090")
+	publicKey, err := jwt.LoadPublicKey("keys/public.pem")
 	if err != nil {
-		grpcServer.Stop()
-		return nil, nil, err
+		return nil, err
 	}
 
-	authValidator := authclient.New(conn)
-	authMiddleware := middleware.NewAuthMiddleware(authValidator)
+	jwtService := jwt.NewService(
+		privateKey,
+		publicKey,
+		jwtRepository,
+		"adorbit-authentication",
+	)
 
-	authService := auth.NewService(sessionService)
+	// grpcServer, _, err := grpcserver.Start("127.0.0.1:9090", sessionService)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+
+	// conn, err := authclient.Dial("127.0.0.1:9090")
+	// if err != nil {
+	// 	grpcServer.Stop()
+	// 	return nil, nil, err
+	// }
+
+	// authValidator := authclient.New(conn)
+	// authMiddleware := middleware.NewAuthMiddleware(authValidator)
+
+	authService := auth.NewService(jwtService)
 	authHandler := auth.NewHandler(authService)
 
 	router := api.NewRouter(api.Dependencies{
-		AuthHandler:    authHandler,
-		AuthMiddleware: authMiddleware,
+		AuthHandler: authHandler,
+		// AuthMiddleware: authMiddleware,
 	})
 
-	cleanup := func() {
-		_ = conn.Close()
-		grpcServer.GracefulStop()
-	}
+	// cleanup := func() {
+	// 	_ = conn.Close()
+	// 	grpcServer.GracefulStop()
+	// }
 
-	return router, cleanup, nil
+	return router, nil
 }

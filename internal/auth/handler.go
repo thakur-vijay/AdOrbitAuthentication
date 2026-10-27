@@ -22,6 +22,14 @@ func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 		response.Write(w, appError.StatusCode, appError.Message)
 		return
 	}
+
+	createdUser, err := h.service.Signup(signupRequest)
+	if err != nil {
+		response.WriteError(w, err)
+		return
+	}
+
+	response.WriteItem(w, http.StatusCreated, "User created successfully.", createdUser)
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
