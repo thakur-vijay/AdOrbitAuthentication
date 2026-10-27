@@ -31,15 +31,15 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	router, cleanup, err := BuildRouter(db)
+	router, err := BuildRouter(db, cfg.JWTPrivateKey, cfg.JWTPublicKey)
 	if err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 
 	return &App{
-		DB:      db,
-		Router:  router,
-		cleanup: cleanup,
+		DB:     db,
+		Router: router,
+		// cleanup: cleanup,
 	}, nil
 }

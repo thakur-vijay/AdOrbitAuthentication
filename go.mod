@@ -8,7 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/joho/godotenv v1.5.1
 	github.com/swaggo/swag v1.16.6
-	github.com/thakur-vijay/adorbit-go v0.0.0-20261027074042-ec127c8f052a
+	github.com/thakur-vijay/adorbit-go v0.1.1
 	google.golang.org/grpc v1.84.0
 )
 
