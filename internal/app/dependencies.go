@@ -11,6 +11,7 @@ import (
 	"github.com/adorbit/authentication/internal/api"
 	"github.com/adorbit/authentication/internal/auth"
 	"github.com/adorbit/authentication/internal/jwt"
+	"github.com/adorbit/authentication/internal/usersclient"
 	"github.com/thakur-vijay/adorbit-go/middleware"
 )
 
@@ -50,7 +51,12 @@ func parsePublicKey(value string) (*rsa.PublicKey, error) {
 	return publicKey, nil
 }
 
-func BuildRouter(db *sql.DB, privateKeyPEM, publicKeyPEM string) (http.Handler, error) {
+func BuildRouter(
+	db *sql.DB,
+	privateKeyPEM string,
+	publicKeyPEM string,
+	usersClient *usersclient.Client,
+) (http.Handler, error) {
 	privateKey, err := parsePrivateKey(privateKeyPEM)
 	if err != nil {
 		return nil, err
@@ -76,7 +82,8 @@ func BuildRouter(db *sql.DB, privateKeyPEM, publicKeyPEM string) (http.Handler, 
 	if err != nil {
 		return nil, err
 	}
-	authService := auth.NewService(jwtService)
+
+	authService := auth.NewService(jwtService, usersClient)
 	authHandler := auth.NewHandler(authService)
 
 	router := api.NewRouter(api.Dependencies{

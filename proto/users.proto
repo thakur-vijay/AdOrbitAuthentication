@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package users.v1;
+
+option go_package = "github.com/adorbit/authentication/gen/users/v1;usersv1";
+
+service UsersService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+}
+
+message CreateUserRequest {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string role = 4;
+}
+
+message CreateUserResponse {
+  string id = 1;
+}

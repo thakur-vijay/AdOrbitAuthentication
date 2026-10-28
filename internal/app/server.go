@@ -54,6 +54,10 @@ func (a *App) Close() error {
 		a.cleanup()
 	}
 
+	if a.usersGRPCConn != nil {
+		_ = a.usersGRPCConn.Close()
+	}
+
 	if a.DB != nil {
 		return a.DB.Close()
 	}
