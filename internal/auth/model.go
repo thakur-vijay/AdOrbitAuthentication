@@ -7,9 +7,18 @@ type LoginRequestDTO struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type Credential struct {
+	UserID       string    `json:"user_id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 type SignupRequestDTO struct {
 	FullName string `json:"full_name" validate:"required"`
 	Email    string `json:"email" validate:"required"`
+	Role     string `json:"role" validate:"required,oneof=advertiser publisher admin"`
 	Password string `json:"password" validate:"required,valid_password"`
 }
 

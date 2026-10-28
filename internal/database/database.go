@@ -22,7 +22,7 @@ func Connect(ctx context.Context, databaseURL string) (*sql.DB, error) {
 	if ctx != nil {
 		if err := db.PingContext(ctx); err != nil {
 			_ = db.Close()
-			return nil, apperrors.NewServiceUnavailable("database ping failed.", nil)
+			return nil, apperrors.NewServiceUnavailable("database ping failed.", err)
 		}
 	}
 

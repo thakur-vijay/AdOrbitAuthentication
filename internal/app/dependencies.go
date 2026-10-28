@@ -82,8 +82,8 @@ func BuildRouter(
 	if err != nil {
 		return nil, err
 	}
-
-	authService := auth.NewService(jwtService, usersClient)
+	authRepository := auth.NewRepository(db)
+	authService := auth.NewService(jwtService, usersClient, authRepository)
 	authHandler := auth.NewHandler(authService)
 
 	router := api.NewRouter(api.Dependencies{

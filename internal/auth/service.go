@@ -4,36 +4,75 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/adorbit/authentication/internal/jwt"
+	"github.com/adorbit/authentication/internal/security"
 	"github.com/adorbit/authentication/internal/usersclient"
 	"github.com/google/uuid"
+	"github.com/thakur-vijay/adorbit-go/apperrors"
 )
 
 type Service struct {
 	jwtService  *jwt.Service
 	usersClient *usersclient.Client
+	repository  *Repository
 }
 
 func NewService(
 	jwtService *jwt.Service,
 	usersClient *usersclient.Client,
+	repository *Repository,
 ) *Service {
 	return &Service{
 		jwtService:  jwtService,
 		usersClient: usersClient,
+		repository:  repository,
 	}
 }
 
-func (s *Service) Signup(request SignupRequestDTO) (LoginResponseDTO, error) {
-	log.Printf("[SIGNUP] Started for email=%s", request.Email)
-
+func (s *Service) Signup(request SignupRequestDTO) (*LoginResponseDTO, error) {
 	ctx := context.Background()
+
+	//1. Fetch user
+	existingCredential, err := s.repository.FetchByEmail(ctx, request.Email)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if existingCredential != nil {
+		return nil, apperrors.NewConflict(
+			"This email is already in use. Please login.",
+			nil,
+		)
+	}
+
 	userID := uuid.NewString()
+
+	passwordHash, err := security.HashPassword(request.Password)
+
+	if err != nil {
+		return nil, err
+	}
+
+	credential := Credential{
+		UserID:       userID,
+		Email:        request.Email,
+		PasswordHash: passwordHash,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	err = s.repository.SaveCredentials(ctx, credential)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if s.usersClient == nil {
 		log.Printf("[SIGNUP] ERROR: usersClient is nil")
-		return LoginResponseDTO{}, errors.New("users client is nil")
+		return &LoginResponseDTO{}, errors.New("users client is nil")
 	}
 
 	log.Printf("[SIGNUP] Calling Users gRPC CreateUser: userID=%s email=%s role=advertiser",
@@ -44,11 +83,11 @@ func (s *Service) Signup(request SignupRequestDTO) (LoginResponseDTO, error) {
 		userID,
 		request.FullName,
 		request.Email,
-		"advertiser",
+		request.Role,
 	)
 	if err != nil {
 		log.Printf("[SIGNUP] Users gRPC CreateUser FAILED: %v", err)
-		return LoginResponseDTO{}, err
+		return &LoginResponseDTO{}, err
 	}
 
 	log.Printf("[SIGNUP] Users gRPC CreateUser SUCCESS: userID=%s", createdUserID)
@@ -56,12 +95,12 @@ func (s *Service) Signup(request SignupRequestDTO) (LoginResponseDTO, error) {
 	tokens, err := s.jwtService.CreateSession(ctx, createdUserID)
 	if err != nil {
 		log.Printf("[SIGNUP] CreateSession FAILED: %v", err)
-		return LoginResponseDTO{}, err
+		return &LoginResponseDTO{}, err
 	}
 
 	log.Printf("[SIGNUP] CreateSession SUCCESS: userID=%s", createdUserID)
 
-	return LoginResponseDTO{
+	return &LoginResponseDTO{
 		User: LoginUserDTO{
 			ID:       createdUserID,
 			FullName: request.FullName,
