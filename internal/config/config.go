@@ -12,6 +12,7 @@ type Config struct {
 	JWTPrivateKey    string
 	JWTPublicKey     string
 	UsersGRPCAddress string
+	RabbitMQURL      string
 }
 
 func Load() (*Config, error) {
@@ -23,6 +24,7 @@ func Load() (*Config, error) {
 		JWTPrivateKey:    strings.ReplaceAll(os.Getenv("JWT_PRIVATE_KEY"), `\n`, "\n"),
 		JWTPublicKey:     strings.ReplaceAll(os.Getenv("JWT_PUBLIC_KEY"), `\n`, "\n"),
 		UsersGRPCAddress: getEnv("USERS_GRPC_ADDRESS", "localhost:9090"),
+		RabbitMQURL:      getEnv("RABBITMQ_URL", ""),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -35,6 +37,10 @@ func Load() (*Config, error) {
 
 	if cfg.JWTPublicKey == "" {
 		return nil, errors.New("JWT_PUBLIC_KEY is not set")
+	}
+
+	if cfg.RabbitMQURL == "" {
+		return nil, errors.New("RABBITMQ_URL is not set")
 	}
 
 	return cfg, nil

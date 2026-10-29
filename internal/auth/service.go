@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/adorbit/authentication/internal/jwt"
+	"github.com/adorbit/authentication/internal/messaging"
 	"github.com/adorbit/authentication/internal/security"
 	"github.com/adorbit/authentication/internal/usersclient"
 	"github.com/google/uuid"
@@ -17,22 +18,26 @@ type Service struct {
 	jwtService  *jwt.Service
 	usersClient *usersclient.Client
 	repository  *Repository
+	rabbitMQ    *messaging.RabbitMQ
 }
 
 func NewService(
 	jwtService *jwt.Service,
 	usersClient *usersclient.Client,
 	repository *Repository,
+	rabbitMQ *messaging.RabbitMQ,
 ) *Service {
 	return &Service{
 		jwtService:  jwtService,
 		usersClient: usersClient,
 		repository:  repository,
+		rabbitMQ:    rabbitMQ,
 	}
 }
 
 func (s *Service) Signup(request SignupRequestDTO) (*LoginResponseDTO, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	//1. Fetch user
 	existingCredential, err := s.repository.FetchByEmail(ctx, request.Email)
@@ -70,27 +75,29 @@ func (s *Service) Signup(request SignupRequestDTO) (*LoginResponseDTO, error) {
 		return nil, err
 	}
 
-	if s.usersClient == nil {
-		log.Printf("[SIGNUP] ERROR: usersClient is nil")
-		return &LoginResponseDTO{}, errors.New("users client is nil")
+	if s.rabbitMQ == nil {
+		log.Printf("[SIGNUP] ERROR: RabbitMQ is nil")
+		return nil, errors.New("RabbitMQ is not initialized")
 	}
 
-	log.Printf("[SIGNUP] Calling Users gRPC CreateUser: userID=%s email=%s role=advertiser",
-		userID, request.Email)
-
-	createdUserID, err := s.usersClient.CreateUser(
-		ctx,
+	log.Printf("[SIGNUP] Sending CreateUser request through RabbitMQ: userID=%s email=%s role=%s",
 		userID,
-		request.FullName,
 		request.Email,
 		request.Role,
 	)
+
+	createdUserID, err := s.rabbitMQ.CreateUser(ctx, messaging.CreateUserRequest{
+		UserID:   userID,
+		FullName: request.FullName,
+		Email:    request.Email,
+		Role:     request.Role,
+	})
 	if err != nil {
-		log.Printf("[SIGNUP] Users gRPC CreateUser FAILED: %v", err)
-		return &LoginResponseDTO{}, err
+		log.Printf("[SIGNUP] RabbitMQ CreateUser FAILED: %v", err)
+		return nil, err
 	}
 
-	log.Printf("[SIGNUP] Users gRPC CreateUser SUCCESS: userID=%s", createdUserID)
+	log.Printf("[SIGNUP] RabbitMQ CreateUser SUCCESS: userID=%s", createdUserID)
 
 	tokens, err := s.jwtService.CreateSession(ctx, createdUserID)
 	if err != nil {

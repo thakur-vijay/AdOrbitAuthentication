@@ -18,7 +18,7 @@ type Credential struct {
 type SignupRequestDTO struct {
 	FullName string `json:"full_name" validate:"required"`
 	Email    string `json:"email" validate:"required"`
-	Role     string `json:"role" validate:"required,oneof=advertiser publisher admin"`
+	Role     string `json:"role" validate:"required,oneof=advertiser publisher"`
 	Password string `json:"password" validate:"required,valid_password"`
 }
 

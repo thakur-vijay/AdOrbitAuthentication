@@ -7,6 +7,7 @@ import (
 
 	"github.com/adorbit/authentication/internal/config"
 	"github.com/adorbit/authentication/internal/database"
+	"github.com/adorbit/authentication/internal/messaging"
 	"github.com/adorbit/authentication/internal/usersclient"
 	"github.com/thakur-vijay/adorbit-go/apperrors"
 	"google.golang.org/grpc"
@@ -18,6 +19,7 @@ type App struct {
 	UsersClient   *usersclient.Client
 	usersGRPCConn *grpc.ClientConn
 	cleanup       func()
+	RabbitMQ      *messaging.RabbitMQ
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -41,8 +43,17 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	router, err := BuildRouter(db, cfg.JWTPrivateKey, cfg.JWTPublicKey, usersClient)
+	rabbitMQ, err := messaging.NewRabbitMQ(cfg.RabbitMQURL)
+
 	if err != nil {
+		_ = usersConn.Close()
+		_ = db.Close()
+		return nil, err
+	}
+
+	router, err := BuildRouter(db, cfg.JWTPrivateKey, cfg.JWTPublicKey, usersClient, rabbitMQ)
+	if err != nil {
+		_ = rabbitMQ.Close()
 		_ = usersConn.Close()
 		_ = db.Close()
 		return nil, err
@@ -53,5 +64,6 @@ func New(cfg *config.Config) (*App, error) {
 		Router:        router,
 		UsersClient:   usersClient,
 		usersGRPCConn: usersConn,
+		RabbitMQ:      rabbitMQ,
 	}, nil
 }

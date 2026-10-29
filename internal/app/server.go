@@ -54,8 +54,16 @@ func (a *App) Close() error {
 		a.cleanup()
 	}
 
+	if a.RabbitMQ != nil {
+		if err := a.RabbitMQ.Close(); err != nil {
+			log.Printf("failed to close RabbitMQ: %v", err)
+		}
+	}
+
 	if a.usersGRPCConn != nil {
-		_ = a.usersGRPCConn.Close()
+		if err := a.usersGRPCConn.Close(); err != nil {
+			log.Printf("failed to close Users gRPC connection: %v", err)
+		}
 	}
 
 	if a.DB != nil {

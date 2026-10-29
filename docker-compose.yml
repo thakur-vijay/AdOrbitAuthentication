@@ -24,6 +24,26 @@ services:
       retries: 10
       start_period: 10s
 
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: adorbit-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-adorbit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - adorbit-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
   auth:
     build:
       context: .
@@ -35,6 +55,7 @@ services:
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@auth-postgres:5432/${POSTGRES_DB}?sslmode=disable"
       APP_PORT: "${APP_PORT:-8080}"
+      RABBITMQ_URL: "${RABBITMQ_URL}"
     ports:
       - "${AUTH_HOST_PORT:-8081}:${APP_PORT:-8080}"
     volumes:
@@ -48,6 +69,7 @@ services:
 
 volumes:
   auth_postgres_data:
+  rabbitmq_data:
 
 networks:
   adorbit-network:
