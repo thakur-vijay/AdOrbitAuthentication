@@ -12,7 +12,6 @@ import (
 	"github.com/adorbit/authentication/internal/auth"
 	"github.com/adorbit/authentication/internal/jwt"
 	"github.com/adorbit/authentication/internal/messaging"
-	"github.com/adorbit/authentication/internal/usersclient"
 	"github.com/thakur-vijay/adorbit-go/middleware"
 )
 
@@ -56,7 +55,6 @@ func BuildRouter(
 	db *sql.DB,
 	privateKeyPEM string,
 	publicKeyPEM string,
-	usersClient *usersclient.Client,
 	rabbitMQ *messaging.RabbitMQ,
 ) (http.Handler, error) {
 	privateKey, err := parsePrivateKey(privateKeyPEM)
@@ -85,7 +83,7 @@ func BuildRouter(
 		return nil, err
 	}
 	authRepository := auth.NewRepository(db)
-	authService := auth.NewService(jwtService, usersClient, authRepository, rabbitMQ)
+	authService := auth.NewService(jwtService, authRepository, rabbitMQ)
 	authHandler := auth.NewHandler(authService)
 
 	router := api.NewRouter(api.Dependencies{

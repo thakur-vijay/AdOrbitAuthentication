@@ -17,13 +17,14 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 	var signupRequest SignupRequestDTO
+	ctx := r.Context()
 	if err := response.DecodeJSONAndValidate(r, &signupRequest); err != nil {
 		appError := apperrors.NewBadRequest(err.Error(), nil)
 		response.Write(w, appError.StatusCode, appError.Message)
 		return
 	}
 
-	createdUser, err := h.service.Signup(signupRequest)
+	createdUser, err := h.service.Signup(ctx, signupRequest)
 	if err != nil {
 		response.WriteError(w, err)
 		return

@@ -9,34 +9,30 @@ import (
 	"github.com/adorbit/authentication/internal/jwt"
 	"github.com/adorbit/authentication/internal/messaging"
 	"github.com/adorbit/authentication/internal/security"
-	"github.com/adorbit/authentication/internal/usersclient"
 	"github.com/google/uuid"
 	"github.com/thakur-vijay/adorbit-go/apperrors"
 )
 
 type Service struct {
-	jwtService  *jwt.Service
-	usersClient *usersclient.Client
-	repository  *Repository
-	rabbitMQ    *messaging.RabbitMQ
+	jwtService *jwt.Service
+	repository *Repository
+	rabbitMQ   *messaging.RabbitMQ
 }
 
 func NewService(
 	jwtService *jwt.Service,
-	usersClient *usersclient.Client,
 	repository *Repository,
 	rabbitMQ *messaging.RabbitMQ,
 ) *Service {
 	return &Service{
-		jwtService:  jwtService,
-		usersClient: usersClient,
-		repository:  repository,
-		rabbitMQ:    rabbitMQ,
+		jwtService: jwtService,
+		repository: repository,
+		rabbitMQ:   rabbitMQ,
 	}
 }
 
-func (s *Service) Signup(request SignupRequestDTO) (*LoginResponseDTO, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (s *Service) Signup(ctx context.Context, request SignupRequestDTO) (*LoginResponseDTO, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	//1. Fetch user
