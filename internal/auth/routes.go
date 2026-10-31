@@ -13,30 +13,33 @@ func RegisterRoutes(
 	jwtMiddleware *middleware.JWTMiddleware,
 	idempotencyMiddleware *idempotency.Middleware,
 ) {
-	signupHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	signupHandler := idempotencyMiddleware.RequireIdempotencyKey(
+		idempotencyMiddleware.RequireIdempotency("auth.signup")(
+			http.HandlerFunc(handler.Signup),
+		),
+	)
+
+	mux.Handle("POST /auth/signup", http.HandlerFunc(func(
+		w http.ResponseWriter,
+		r *http.Request,
+	) {
 		ctx := idempotency.WithIdempotencyScope(
 			r.Context(),
 			"public:signup",
 		)
 
-		r = r.WithContext(ctx)
-		handler.Signup(w, r)
-	})
-
-	mux.Handle(
-		"POST /auth/signup",
-		idempotencyMiddleware.RequireIdempotency("auth.signup")(
-			idempotencyMiddleware.RequireIdempotencyKey(
-				signupHandler,
-			),
-		),
-	)
+		signupHandler.ServeHTTP(w, r.WithContext(ctx))
+	}))
 
 	mux.HandleFunc("POST /auth/login", handler.Login)
 
-	mux.Handle("POST /auth/logout",
-		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Logout)))
+	mux.Handle(
+		"POST /auth/logout",
+		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Logout)),
+	)
 
-	mux.Handle("POST /auth/refresh",
-		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Refresh)))
+	mux.Handle(
+		"POST /auth/refresh",
+		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Refresh)),
+	)
 }

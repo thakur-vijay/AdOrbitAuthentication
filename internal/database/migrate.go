@@ -2,11 +2,12 @@ package database
 
 import (
 	"database/sql"
-	"net/url"
 
 	"github.com/golang-migrate/migrate/v4"
 	migratepostgres "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/thakur-vijay/adorbit-go/apperrors"
 	"github.com/thakur-vijay/adorbit-go/idempotency"
 )
@@ -29,12 +30,19 @@ func Migrate(db *sql.DB, databaseURL string) error {
 	}
 
 	err = authMigrations.Up()
-	authMigrations.Close()
+	_, closeErr := authMigrations.Close()
 
 	if err != nil && err != migrate.ErrNoChange {
 		return apperrors.NewServiceUnavailable(
 			"authentication migration failed",
 			err,
+		)
+	}
+
+	if closeErr != nil {
+		return apperrors.NewServiceUnavailable(
+			"authentication migration close failed",
+			closeErr,
 		)
 	}
 
@@ -47,28 +55,34 @@ func Migrate(db *sql.DB, databaseURL string) error {
 		)
 	}
 
-	// 3. Configure a separate migration tracking table.
-	parsedURL, err := url.Parse(databaseURL)
+	// 3. Open a dedicated database connection for Idempotency migrations.
+	migrationDB, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		source.Close()
-		return apperrors.NewConfigError(
-			"invalid database URL",
+		return apperrors.NewServiceUnavailable(
+			"idempotency database connection failed",
 			err,
 		)
 	}
 
-	query := parsedURL.Query()
-	query.Set("x-migrations-table", "idempotency_schema_migrations")
-	parsedURL.RawQuery = query.Encode()
+	if err := migrationDB.Ping(); err != nil {
+		migrationDB.Close()
+		source.Close()
+		return apperrors.NewServiceUnavailable(
+			"idempotency database ping failed",
+			err,
+		)
+	}
 
-	// 3. Configure a separate migration tracking table.
+	// 4. Configure a separate migration tracking table.
 	databaseDriver, err := migratepostgres.WithInstance(
-		db,
+		migrationDB,
 		&migratepostgres.Config{
 			MigrationsTable: "idempotency_schema_migrations",
 		},
 	)
 	if err != nil {
+		migrationDB.Close()
 		source.Close()
 		return apperrors.NewServiceUnavailable(
 			"idempotency database migration setup failed",
@@ -76,14 +90,13 @@ func Migrate(db *sql.DB, databaseURL string) error {
 		)
 	}
 
-	// 4. Run Idempotency migrations.
+	// 5. Run Idempotency migrations.
 	idempotencyMigrations, err := migrate.NewWithInstance(
 		"iofs",
 		source,
 		"adorbit_auth",
 		databaseDriver,
 	)
-
 	if err != nil {
 		source.Close()
 		databaseDriver.Close()

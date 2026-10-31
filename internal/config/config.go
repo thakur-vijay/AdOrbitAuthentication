@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"errors"
 	"os"
 	"strings"
@@ -23,6 +24,15 @@ type Config struct {
 func Load() (*Config, error) {
 	port := normalizePort(getEnv("APP_PORT", "8080"))
 
+	scopeKey, err := hex.DecodeString(os.Getenv("IDEMPOTENCY_SCOPE_KEY"))
+	if err != nil || len(scopeKey) != 32 {
+		return nil, errors.New("IDEMPOTENCY_SCOPE_KEY must be 64 hexadecimal characters")
+	}
+
+	encryptionKey, err := hex.DecodeString(os.Getenv("IDEMPOTENCY_ENCRYPTION_KEY"))
+	if err != nil || len(encryptionKey) != 32 {
+		return nil, errors.New("IDEMPOTENCY_ENCRYPTION_KEY must be 64 hexadecimal characters")
+	}
 	cfg := &Config{
 		Port:             port,
 		DatabaseURL:      getEnv("DATABASE_URL", ""),
@@ -31,8 +41,8 @@ func Load() (*Config, error) {
 		UsersGRPCAddress: getEnv("USERS_GRPC_ADDRESS", "localhost:9090"),
 		RabbitMQURL:      getEnv("RABBITMQ_URL", ""),
 
-		IdempotencyScopeKey:      []byte(os.Getenv("IDEMPOTENCY_SCOPE_KEY")),
-		IdempotencyEncryptionKey: []byte(os.Getenv("IDEMPOTENCY_ENCRYPTION_KEY")),
+		IdempotencyScopeKey:      scopeKey,
+		IdempotencyEncryptionKey: encryptionKey,
 	}
 
 	if cfg.DatabaseURL == "" {
