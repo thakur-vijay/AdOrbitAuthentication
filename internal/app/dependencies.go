@@ -10,8 +10,10 @@ import (
 
 	"github.com/adorbit/authentication/internal/api"
 	"github.com/adorbit/authentication/internal/auth"
+	"github.com/adorbit/authentication/internal/config"
 	"github.com/adorbit/authentication/internal/jwt"
 	"github.com/adorbit/authentication/internal/messaging"
+	"github.com/thakur-vijay/adorbit-go/idempotency"
 	"github.com/thakur-vijay/adorbit-go/middleware"
 )
 
@@ -53,16 +55,15 @@ func parsePublicKey(value string) (*rsa.PublicKey, error) {
 
 func BuildRouter(
 	db *sql.DB,
-	privateKeyPEM string,
-	publicKeyPEM string,
+	cfg *config.Config,
 	rabbitMQ *messaging.RabbitMQ,
 ) (http.Handler, error) {
-	privateKey, err := parsePrivateKey(privateKeyPEM)
+	privateKey, err := parsePrivateKey(cfg.JWTPrivateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	publicKey, err := parsePublicKey(publicKeyPEM)
+	publicKey, err := parsePublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func BuildRouter(
 	)
 
 	jwtMiddleware, err := middleware.NewJWTMiddleware(
-		publicKeyPEM,
+		cfg.JWTPublicKey,
 		"adorbit-authentication",
 	)
 	if err != nil {
@@ -86,9 +87,27 @@ func BuildRouter(
 	authService := auth.NewService(jwtService, authRepository, rabbitMQ)
 	authHandler := auth.NewHandler(authService)
 
+	// Initialize Idempotency Repository
+	idempotencyRepository := idempotency.NewPostgresRepository(db)
+
+	// Initialize Idempotency Service
+	idempotencyService, err := idempotency.NewService(
+		idempotencyRepository,
+		cfg.IdempotencyConfig(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize Idempotency HTTP Middleware
+	idempotencyMiddleware := idempotency.NewHTTPMiddleware(
+		idempotencyService,
+	)
+
 	router := api.NewRouter(api.Dependencies{
-		AuthHandler:   authHandler,
-		JWTMiddleware: jwtMiddleware,
+		AuthHandler:           authHandler,
+		JWTMiddleware:         jwtMiddleware,
+		IdempotencyMiddleware: idempotencyMiddleware,
 	})
 
 	return router, nil

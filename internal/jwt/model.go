@@ -20,6 +20,11 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+type RegistrationClaims struct {
+	FlowID string `json:"flow_id"`
+	jwt.RegisteredClaims
+}
+
 type Principal struct {
 	UserID string
 }

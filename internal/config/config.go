@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"strings"
+
+	"github.com/thakur-vijay/adorbit-go/idempotency"
 )
 
 type Config struct {
@@ -13,6 +15,9 @@ type Config struct {
 	JWTPublicKey     string
 	UsersGRPCAddress string
 	RabbitMQURL      string
+
+	IdempotencyScopeKey      []byte
+	IdempotencyEncryptionKey []byte
 }
 
 func Load() (*Config, error) {
@@ -25,6 +30,9 @@ func Load() (*Config, error) {
 		JWTPublicKey:     strings.ReplaceAll(os.Getenv("JWT_PUBLIC_KEY"), `\n`, "\n"),
 		UsersGRPCAddress: getEnv("USERS_GRPC_ADDRESS", "localhost:9090"),
 		RabbitMQURL:      getEnv("RABBITMQ_URL", ""),
+
+		IdempotencyScopeKey:      []byte(os.Getenv("IDEMPOTENCY_SCOPE_KEY")),
+		IdempotencyEncryptionKey: []byte(os.Getenv("IDEMPOTENCY_ENCRYPTION_KEY")),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -43,7 +51,38 @@ func Load() (*Config, error) {
 		return nil, errors.New("RABBITMQ_URL is not set")
 	}
 
+	if len(cfg.IdempotencyScopeKey) != 32 {
+		return nil, errors.New("IDEMPOTENCY_SCOPE_KEY must be exactly 32 bytes")
+	}
+
+	if len(cfg.IdempotencyEncryptionKey) != 32 {
+		return nil, errors.New("IDEMPOTENCY_ENCRYPTION_KEY must be exactly 32 bytes")
+	}
+
 	return cfg, nil
+}
+
+func (c *Config) IdempotencyConfig() idempotency.Config {
+	return idempotency.Config{
+		TTL:           24 * 60 * 60 * 1e9,
+		ProcessingTTL: 2 * 60 * 1e9,
+
+		ScopeHashKeys: []idempotency.KeyMaterial{
+			{
+				ID:  "scope-v1",
+				Key: c.IdempotencyScopeKey,
+			},
+		},
+		ActiveScopeHashKeyID: "scope-v1",
+
+		ResponseEncryptionKeys: []idempotency.KeyMaterial{
+			{
+				ID:  "response-v1",
+				Key: c.IdempotencyEncryptionKey,
+			},
+		},
+		ActiveResponseKeyID: "response-v1",
+	}
 }
 
 func getEnv(key, fallback string) string {

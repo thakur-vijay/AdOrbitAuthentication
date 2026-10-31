@@ -39,7 +39,7 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	router, err := BuildRouter(db, cfg.JWTPrivateKey, cfg.JWTPublicKey, rabbitMQ)
+	router, err := BuildRouter(db, cfg, rabbitMQ)
 	if err != nil {
 		_ = rabbitMQ.Close()
 		_ = db.Close()

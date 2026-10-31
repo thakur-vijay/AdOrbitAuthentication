@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	AccessTokenTTL  = 15 * time.Minute
-	RefreshTokenTTL = 30 * 24 * time.Hour
+	AccessTokenTTL       = 15 * time.Minute
+	RefreshTokenTTL      = 30 * 24 * time.Hour
+	RegistrationTokenTTL = 30 * time.Minute
 )
 
 type Service struct {
@@ -245,4 +246,62 @@ func (s *Service) Logout(
 // PublicKey returns the public key for other services to verify JWTs.
 func (s *Service) PublicKey() *rsa.PublicKey {
 	return s.publicKey
+}
+
+func (s *Service) CreateRegistrationToken() (string, string, error) {
+	now := time.Now().UTC()
+	flowID := uuid.NewString()
+
+	claims := RegistrationClaims{
+		FlowID:    flowID,
+		Issuer:    s.issuer,
+		Subject:   flowID,
+		ID:        uuid.NewString(),
+		IssuedAt:  jwtlib.NewNumericDate(now),
+		NotBefore: jwtlib.NewNumericDate(now),
+		ExpiresAt: jwtlib.NewNumericDate(now.Add(RegistrationTokenTTL)),
+	}
+
+	token := jwtlib.NewWithClaims(jwtlib.SigningMethodRS256, claims)
+
+	signedToken, err := token.SignedString(s.privateKey)
+	if err != nil {
+		return "", "", err
+	}
+
+	return signedToken, flowID, nil
+}
+
+func (s *Service) ValidateRegistrationToken(tokenString string) (string, error) {
+	if tokenString == "" {
+		return "", errors.New("missing registration token")
+	}
+
+	claims := &RegistrationClaims{}
+
+	token, err := jwtlib.ParseWithClaims(
+		tokenString,
+		claims,
+		func(token *jwtlib.Token) (any, error) {
+			if token.Method != jwtlib.SigningMethodRS256 {
+				return nil, errors.New("unexpected signing method")
+			}
+			return s.publicKey, nil
+		},
+		jwtlib.WithIssuer(s.issuer),
+		jwtlib.WithExpirationRequired(),
+		jwtlib.WithIssuedAt(),
+		jwtlib.WithValidMethods([]string{"RS256"}),
+		jwtlib.WithLeeway(30*time.Second),
+	)
+
+	if err != nil || !token.Valid {
+		return "", errors.New("invalid registration token")
+	}
+
+	if claims.FlowID == "" || claims.Subject != claims.FlowID {
+		return "", errors.New("invalid registration claims")
+	}
+
+	return claims.FlowID, nil
 }

@@ -4,14 +4,16 @@ import (
 	"net/http"
 
 	"github.com/adorbit/authentication/internal/auth"
+	"github.com/thakur-vijay/adorbit-go/idempotency"
 	"github.com/thakur-vijay/adorbit-go/middleware"
 )
 
 const v1Prefix = "/api/v1"
 
 type Dependencies struct {
-	AuthHandler   *auth.Handler
-	JWTMiddleware *middleware.JWTMiddleware
+	AuthHandler           *auth.Handler
+	JWTMiddleware         *middleware.JWTMiddleware
+	IdempotencyMiddleware *idempotency.Middleware
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -19,7 +21,7 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	mux.HandleFunc("GET /health", health)
 
 	v1Mux := http.NewServeMux()
-	auth.RegisterRoutes(v1Mux, dependencies.AuthHandler, dependencies.JWTMiddleware)
+	auth.RegisterRoutes(v1Mux, dependencies.AuthHandler, dependencies.JWTMiddleware, dependencies.IdempotencyMiddleware)
 	mux.Handle(v1Prefix+"/", http.StripPrefix(v1Prefix, v1Mux))
 
 	return mux
