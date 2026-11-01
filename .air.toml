@@ -8,9 +8,9 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./cmd/server"
+  cmd = "go build -gcflags='all=-N -l' -o ./tmp/main ./cmd/server"
   delay = 1000
-  entrypoint = ["./tmp/main"]
+  entrypoint = ["dlv", "exec", "./tmp/main", "--headless", "--listen=:40000", "--api-version=2", "--accept-multiclient", "--continue"]
   exclude_dir = ["assets", "tmp", "vendor", "testdata", "docs"]
   exclude_file = []
   exclude_regex = ["_test.go"]

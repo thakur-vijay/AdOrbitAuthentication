@@ -11,6 +11,7 @@ type Credential struct {
 	UserID       string    `json:"user_id"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"password_hash"`
+	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

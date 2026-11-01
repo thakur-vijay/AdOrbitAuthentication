@@ -45,3 +45,34 @@ func (r *Repository) SaveCredentials(ctx context.Context, credential Credential)
 
 	return err
 }
+
+func (r *Repository) UpdateCredentialStatus(
+	ctx context.Context,
+	userID string,
+	status string,
+) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE credentials
+		SET
+			status = $1,
+			updated_at = NOW()
+		WHERE user_id = $2
+	`,
+		status,
+		userID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}

@@ -31,81 +31,193 @@ func NewService(
 	}
 }
 
-func (s *Service) Signup(ctx context.Context, request SignupRequestDTO) (*LoginResponseDTO, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+const (
+	Pending = "pending"
+	Active  = "active"
+	Failed  = "failed"
+)
 
-	//1. Fetch user
-	existingCredential, err := s.repository.FetchByEmail(ctx, request.Email)
-
-	if err != nil {
-		return nil, err
+func (s *Service) Signup(
+	ctx context.Context,
+	request SignupRequestDTO,
+) (*LoginResponseDTO, error) {
+	if s.repository == nil {
+		return nil, errors.New("credential repository is not initialized")
 	}
 
-	if existingCredential != nil {
-		return nil, apperrors.NewConflict(
-			"This email is already in use. Please login.",
-			nil,
-		)
-	}
-
-	userID := uuid.NewString()
-
-	passwordHash, err := security.HashPassword(request.Password)
-
-	if err != nil {
-		return nil, err
-	}
-
-	credential := Credential{
-		UserID:       userID,
-		Email:        request.Email,
-		PasswordHash: passwordHash,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-
-	err = s.repository.SaveCredentials(ctx, credential)
-
-	if err != nil {
-		return nil, err
+	if s.jwtService == nil {
+		return nil, errors.New("JWT service is not initialized")
 	}
 
 	if s.rabbitMQ == nil {
-		log.Printf("[SIGNUP] ERROR: RabbitMQ is nil")
 		return nil, errors.New("RabbitMQ is not initialized")
 	}
 
-	log.Printf("[SIGNUP] Sending CreateUser request through RabbitMQ: userID=%s email=%s role=%s",
-		userID,
+	// 1. Check existing credentials.
+	dbCtx, dbCancel := context.WithTimeout(ctx, 3*time.Second)
+	existingCredential, err := s.repository.FetchByEmail(
+		dbCtx,
 		request.Email,
-		request.Role,
 	)
+	dbCancel()
 
-	createdUserID, err := s.rabbitMQ.CreateUser(ctx, messaging.CreateUserRequest{
-		UserID:   userID,
-		FullName: request.FullName,
-		Email:    request.Email,
-		Role:     request.Role,
-	})
 	if err != nil {
-		log.Printf("[SIGNUP] RabbitMQ CreateUser FAILED: %v", err)
 		return nil, err
 	}
 
-	log.Printf("[SIGNUP] RabbitMQ CreateUser SUCCESS: userID=%s", createdUserID)
+	var userID string
 
-	tokens, err := s.jwtService.CreateSession(ctx, createdUserID)
-	if err != nil {
-		log.Printf("[SIGNUP] CreateSession FAILED: %v", err)
-		return &LoginResponseDTO{}, err
+	// 2. Handle existing credentials.
+	if existingCredential != nil {
+		switch existingCredential.Status {
+		case Active:
+			return nil, apperrors.NewConflict(
+				"This email is already in use. Please login.",
+				nil,
+			)
+
+		case Pending:
+			// Verify that the retry belongs to the same signup.
+			verified, err := security.VerifyPassword(
+				request.Password,
+				existingCredential.PasswordHash,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			if !verified {
+				return nil, apperrors.NewConflict(
+					"A signup with this email is already pending.",
+					nil,
+				)
+			}
+
+			userID = existingCredential.UserID
+		case Failed:
+			return nil, apperrors.NewConflict(
+				"This signup previously failed. Please contact support.",
+				nil,
+			)
+
+		default:
+			return nil, errors.New(
+				"credential has an invalid status",
+			)
+		}
+	} else {
+		// 3. Create new pending credentials.
+		userID = uuid.NewString()
+
+		passwordHash, err := security.HashPassword(request.Password)
+		if err != nil {
+			return nil, err
+		}
+
+		now := time.Now().UTC()
+
+		credential := Credential{
+			UserID:       userID,
+			Email:        request.Email,
+			PasswordHash: passwordHash,
+			Status:       Pending,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+
+		dbCtx, dbCancel := context.WithTimeout(ctx, 3*time.Second)
+		err = s.repository.SaveCredentials(dbCtx, credential)
+		dbCancel()
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	log.Printf("[SIGNUP] CreateSession SUCCESS: userID=%s", createdUserID)
+	// 4. Request user creation using the same UserID.
+	rabbitCtx, rabbitCancel := context.WithTimeout(ctx, 5*time.Second)
 
+	createdUserID, err := s.rabbitMQ.CreateUser(
+		rabbitCtx,
+		messaging.CreateUserRequest{
+			UserID:   userID,
+			FullName: request.FullName,
+			Email:    request.Email,
+			Role:     request.Role,
+		},
+	)
+
+	rabbitCancel()
+
+	if err != nil {
+		log.Printf(
+			"[SIGNUP] CreateUser failed: userID=%s error=%v",
+			userID,
+			err,
+		)
+
+		// Keep credentials pending.
+		// Timeout does not prove that user creation failed.
+		return nil, err
+	}
+
+	if createdUserID != userID {
+		log.Printf(
+			"[SIGNUP] UserID mismatch: expected=%s received=%s",
+			userID,
+			createdUserID,
+		)
+
+		return nil, errors.New("user creation returned an unexpected user ID")
+	}
+
+	// 5. Activate credentials only after user creation confirmation.
+	updateCtx, updateCancel := context.WithTimeout(
+		ctx,
+		3*time.Second,
+	)
+
+	err = s.repository.UpdateCredentialStatus(
+		updateCtx,
+		userID,
+		Active,
+	)
+
+	updateCancel()
+
+	if err != nil {
+		log.Printf(
+			"[SIGNUP] Credential activation failed: userID=%s error=%v",
+			userID,
+			err,
+		)
+
+		return nil, err
+	}
+
+	// 6. Create session only after credentials become active.
+	sessionCtx, sessionCancel := context.WithTimeout(
+		ctx,
+		5*time.Second,
+	)
+
+	tokens, err := s.jwtService.CreateSession(sessionCtx, userID)
+	sessionCancel()
+
+	if err != nil {
+		log.Printf(
+			"[SIGNUP] Session creation failed: userID=%s error=%v",
+			userID,
+			err,
+		)
+
+		return nil, err
+	}
+
+	// 7. Return signup response.
 	return &LoginResponseDTO{
 		User: LoginUserDTO{
-			ID:       createdUserID,
+			ID:       userID,
 			FullName: request.FullName,
 			Email:    request.Email,
 		},
