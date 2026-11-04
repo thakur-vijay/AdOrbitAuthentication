@@ -39,6 +39,11 @@ func RegisterRoutes(
 	)
 
 	mux.Handle(
+		"POST /auth/resendOTP",
+		http.HandlerFunc(handler.ResendOTP),
+	)
+
+	mux.Handle(
 		"POST /auth/refresh",
 		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Refresh)),
 	)

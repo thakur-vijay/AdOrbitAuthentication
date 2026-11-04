@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	emailotp "github.com/adorbit/authentication/internal/emailOtp"
 	"github.com/adorbit/authentication/internal/jwt"
 	"github.com/adorbit/authentication/internal/messaging"
 	"github.com/adorbit/authentication/internal/security"
@@ -17,17 +18,20 @@ type Service struct {
 	jwtService *jwt.Service
 	repository *Repository
 	rabbitMQ   *messaging.RabbitMQ
+	otpService *emailotp.Service
 }
 
 func NewService(
 	jwtService *jwt.Service,
 	repository *Repository,
 	rabbitMQ *messaging.RabbitMQ,
+	otpService *emailotp.Service,
 ) *Service {
 	return &Service{
 		jwtService: jwtService,
 		repository: repository,
 		rabbitMQ:   rabbitMQ,
+		otpService: otpService,
 	}
 }
 
@@ -224,4 +228,16 @@ func (s *Service) Signup(
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
 	}, nil
+}
+
+func (s *Service) ResendOTP(ctx context.Context, dto ResendOTPDTO) error {
+	// existingCredential, err := s.repository.FetchByEmail(
+	// 	ctx,
+	// 	dto.Email,
+	// )
+	// if existingCredential != nil {
+	err := s.otpService.Send(ctx, "testID", dto.Email)
+	// }
+	log.Printf("ERROR IS", err)
+	return err
 }

@@ -10,7 +10,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/rabbitmq/amqp091-go v1.16.0
 	github.com/swaggo/swag v1.16.6
-	github.com/thakur-vijay/adorbit-go v0.1.2
+	github.com/thakur-vijay/adorbit-go v0.1.5
 	github.com/thakur-vijay/adorbit-go/idempotency v0.1.3
 	golang.org/x/crypto v0.58.0
 	google.golang.org/grpc v1.85.0

@@ -11,9 +11,11 @@ import (
 	"github.com/adorbit/authentication/internal/api"
 	"github.com/adorbit/authentication/internal/auth"
 	"github.com/adorbit/authentication/internal/config"
+	emailotp "github.com/adorbit/authentication/internal/emailOtp"
 	"github.com/adorbit/authentication/internal/jwt"
 	"github.com/adorbit/authentication/internal/messaging"
 	"github.com/thakur-vijay/adorbit-go/idempotency"
+	"github.com/thakur-vijay/adorbit-go/mailservice"
 	"github.com/thakur-vijay/adorbit-go/middleware"
 )
 
@@ -83,8 +85,19 @@ func BuildRouter(
 	if err != nil {
 		return nil, err
 	}
+
+	mailConfig, err := mailservice.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	mailService, err := mailservice.New(mailConfig)
+	if err != nil {
+		return nil, err
+	}
+	otpRepository := emailotp.NewRepository(db)
+	otpService := emailotp.NewService(mailService, otpRepository, cfg.OTP_HMAC_SECRET)
 	authRepository := auth.NewRepository(db)
-	authService := auth.NewService(jwtService, authRepository, rabbitMQ)
+	authService := auth.NewService(jwtService, authRepository, rabbitMQ, otpService)
 	authHandler := auth.NewHandler(authService)
 
 	// Initialize Idempotency Repository

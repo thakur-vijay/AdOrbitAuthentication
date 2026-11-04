@@ -19,6 +19,7 @@ type Config struct {
 
 	IdempotencyScopeKey      []byte
 	IdempotencyEncryptionKey []byte
+	OTP_HMAC_SECRET          []byte
 }
 
 func Load() (*Config, error) {
@@ -33,6 +34,11 @@ func Load() (*Config, error) {
 	if err != nil || len(encryptionKey) != 32 {
 		return nil, errors.New("IDEMPOTENCY_ENCRYPTION_KEY must be 64 hexadecimal characters")
 	}
+
+	OTPHMACSecret, err := hex.DecodeString(os.Getenv("OTP_HMAC_SECRET"))
+	if err != nil || len(OTPHMACSecret) != 32 {
+		return nil, errors.New("OTP_HMAC_SECRET must be 64 hexadecimal characters")
+	}
 	cfg := &Config{
 		Port:             port,
 		DatabaseURL:      getEnv("DATABASE_URL", ""),
@@ -43,6 +49,7 @@ func Load() (*Config, error) {
 
 		IdempotencyScopeKey:      scopeKey,
 		IdempotencyEncryptionKey: encryptionKey,
+		OTP_HMAC_SECRET:          OTPHMACSecret,
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -59,14 +66,6 @@ func Load() (*Config, error) {
 
 	if cfg.RabbitMQURL == "" {
 		return nil, errors.New("RABBITMQ_URL is not set")
-	}
-
-	if len(cfg.IdempotencyScopeKey) != 32 {
-		return nil, errors.New("IDEMPOTENCY_SCOPE_KEY must be exactly 32 bytes")
-	}
-
-	if len(cfg.IdempotencyEncryptionKey) != 32 {
-		return nil, errors.New("IDEMPOTENCY_ENCRYPTION_KEY must be exactly 32 bytes")
 	}
 
 	return cfg, nil

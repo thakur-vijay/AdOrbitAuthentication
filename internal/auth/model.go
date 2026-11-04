@@ -23,6 +23,10 @@ type SignupRequestDTO struct {
 	Password string `json:"password" validate:"required,valid_password"`
 }
 
+type ResendOTPDTO struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
 type LoginResponseDTO struct {
 	User         LoginUserDTO `json:"user"`
 	AccessToken  string       `json:"access_token"`

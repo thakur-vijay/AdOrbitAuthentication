@@ -41,6 +41,24 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (h *Handler) ResendOTP(w http.ResponseWriter, r *http.Request) {
+	var resendOTPDTO ResendOTPDTO
+	ctx := r.Context()
+	if err := response.DecodeJSONAndValidate(r, &resendOTPDTO); err != nil {
+		appError := apperrors.NewBadRequest(err.Error(), nil)
+		response.Write(w, appError.StatusCode, appError.Message)
+		return
+	}
+
+	err := h.service.ResendOTP(ctx, resendOTPDTO)
+	if err != nil {
+		response.WriteError(w, err)
+		return
+	}
+
+	response.Write(w, http.StatusCreated, "OTP send successfully")
+}
+
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 }
