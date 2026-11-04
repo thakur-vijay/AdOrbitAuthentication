@@ -128,6 +128,8 @@ github.com/thakur-vijay/adorbit-go v0.1.2 h1:FKjkVrtZe/rTDD+J8driWptN9CRIKVXZUUa
 github.com/thakur-vijay/adorbit-go v0.1.2/go.mod h1:7TUUy+3M1EY07EpqtyeedeYfqWyEEUGiyhj+6n4wIPQ=
 github.com/thakur-vijay/adorbit-go/idempotency v0.1.2 h1:QMrue/i1bfqMucsoy2tG+sfMidDbO9Fkc5lCXmyp4V4=
 github.com/thakur-vijay/adorbit-go/idempotency v0.1.2/go.mod h1:AjtVHrq+1gbeXYvEnqwjVfo5teHSW4NV0WEtXyt+eb0=
+github.com/thakur-vijay/adorbit-go/idempotency v0.1.3 h1:56ttk4L5jnodY8IsSeKuwimZ1xTskY9tipjFnZJxW/s=
+github.com/thakur-vijay/adorbit-go/idempotency v0.1.3/go.mod h1:AjtVHrq+1gbeXYvEnqwjVfo5teHSW4NV0WEtXyt+eb0=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 h1:8tvICD4vSTOOsNrsI4Ljf6C+6UKvpTEH5XY3JMoyPoo=
