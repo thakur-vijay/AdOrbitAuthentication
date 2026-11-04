@@ -15,10 +15,11 @@ func NewRepository(db *sql.DB) *Repository {
 
 func (r *Repository) FetchByEmail(ctx context.Context, email string) (*Credential, error) {
 	var credential Credential
-	err := r.db.QueryRowContext(ctx, `SELECT user_id, email, password_hash, created_at, updated_at FROM credentials WHERE email = $1`, email).Scan(
+	err := r.db.QueryRowContext(ctx, `SELECT user_id, email, password_hash, status, created_at, updated_at FROM credentials WHERE email = $1`, email).Scan(
 		&credential.UserID,
 		&credential.Email,
 		&credential.PasswordHash,
+		&credential.Status,
 		&credential.CreatedAt,
 		&credential.UpdatedAt,
 	)
