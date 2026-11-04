@@ -135,7 +135,7 @@ func (s *Service) Signup(
 	}
 
 	// 4. Request user creation using the same UserID.
-	rabbitCtx, rabbitCancel := context.WithTimeout(ctx, 5*time.Second)
+	rabbitCtx, rabbitCancel := context.WithTimeout(ctx, 30*time.Second)
 
 	createdUserID, err := s.rabbitMQ.CreateUser(
 		rabbitCtx,
