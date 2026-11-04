@@ -7,6 +7,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/thakur-vijay/adorbit-go/apperrors"
 )
 
 type RabbitMQ struct {
@@ -73,17 +74,42 @@ type CreateUserRequest struct {
 }
 
 type CreateUserResponse struct {
-	UserID string `json:"user_id"`
-	Error  string `json:"error,omitempty"`
+	UserID  string `json:"user_id,omitempty"`
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 func (r *RabbitMQ) CreateUser(
 	ctx context.Context,
 	request CreateUserRequest,
 ) (string, error) {
+	if r == nil || r.Connection == nil {
+		return "", apperrors.NewInternal(
+			"RabbitMQ connection is not initialized",
+			nil,
+		)
+	}
+
+	if err := ctx.Err(); err != nil {
+		return "", apperrors.NewInternal(
+			"Create user request was cancelled",
+			err,
+		)
+	}
+
+	if request.UserID == "" {
+		return "", apperrors.NewBadRequest(
+			"User ID is required",
+			nil,
+		)
+	}
+
 	channel, err := r.Connection.Channel()
 	if err != nil {
-		return "", fmt.Errorf("open RabbitMQ channel: %w", err)
+		return "", apperrors.NewInternal(
+			"Failed to open RabbitMQ channel",
+			err,
+		)
 	}
 	defer channel.Close()
 
@@ -96,7 +122,10 @@ func (r *RabbitMQ) CreateUser(
 		nil,
 	)
 	if err != nil {
-		return "", fmt.Errorf("declare users queue: %w", err)
+		return "", apperrors.NewInternal(
+			"Failed to declare users queue",
+			err,
+		)
 	}
 
 	replyQueue, err := channel.QueueDeclare(
@@ -108,7 +137,10 @@ func (r *RabbitMQ) CreateUser(
 		nil,
 	)
 	if err != nil {
-		return "", fmt.Errorf("declare reply queue: %w", err)
+		return "", apperrors.NewInternal(
+			"Failed to declare reply queue",
+			err,
+		)
 	}
 
 	messages, err := channel.Consume(
@@ -121,12 +153,18 @@ func (r *RabbitMQ) CreateUser(
 		nil,
 	)
 	if err != nil {
-		return "", fmt.Errorf("consume reply queue: %w", err)
+		return "", apperrors.NewInternal(
+			"Failed to consume reply queue",
+			err,
+		)
 	}
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return "", fmt.Errorf("marshal create user request: %w", err)
+		return "", apperrors.NewInternal(
+			"Failed to encode create user request",
+			err,
+		)
 	}
 
 	correlationID := fmt.Sprintf(
@@ -150,17 +188,26 @@ func (r *RabbitMQ) CreateUser(
 		},
 	)
 	if err != nil {
-		return "", fmt.Errorf("publish create user request: %w", err)
+		return "", apperrors.NewInternal(
+			"Failed to publish create user request",
+			err,
+		)
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return "", fmt.Errorf("waiting for user creation response: %w", ctx.Err())
+			return "", apperrors.NewRequestTimeout(
+				"Timed out waiting for user creation response",
+				ctx.Err(),
+			)
 
 		case message, ok := <-messages:
 			if !ok {
-				return "", fmt.Errorf("RabbitMQ reply channel closed")
+				return "", apperrors.NewInternal(
+					"RabbitMQ reply channel was closed",
+					nil,
+				)
 			}
 
 			if message.CorrelationId != correlationID {
@@ -168,16 +215,42 @@ func (r *RabbitMQ) CreateUser(
 			}
 
 			var response CreateUserResponse
+
 			if err := json.Unmarshal(message.Body, &response); err != nil {
-				return "", fmt.Errorf("decode create user response: %w", err)
+				return "", apperrors.NewInternal(
+					"Invalid response from users service",
+					err,
+				)
 			}
 
-			if response.Error != "" {
-				return "", fmt.Errorf("users service: %s", response.Error)
+			if response.Code != "" {
+				switch response.Code {
+				case "USER_ALREADY_EXISTS":
+					return "", apperrors.NewConflict(
+						response.Message,
+						nil,
+					)
+
+				default:
+					return "", apperrors.NewInternal(
+						response.Message,
+						nil,
+					)
+				}
 			}
 
 			if response.UserID == "" {
-				return "", fmt.Errorf("users service returned an empty user ID")
+				return "", apperrors.NewInternal(
+					"Users service returned an empty user ID",
+					nil,
+				)
+			}
+
+			if response.UserID != request.UserID {
+				return "", apperrors.NewInternal(
+					"Users service returned an unexpected user ID",
+					nil,
+				)
 			}
 
 			return response.UserID, nil
