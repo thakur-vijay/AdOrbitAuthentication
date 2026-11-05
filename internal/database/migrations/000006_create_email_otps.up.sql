@@ -13,13 +13,10 @@ CREATE TABLE
             AND max_attempts <= 5
         ),
         verified_at TIMESTAMPTZ,
+        last_sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
         CONSTRAINT email_otps_user_id_unique UNIQUE (user_id)
     );
 
 CREATE INDEX idx_email_otps_expires_at ON email_otps (expires_at);
-
-CREATE INDEX idx_email_otps_unverified ON email_otps (user_id, expires_at)
-WHERE
-    verified_at IS NULL;

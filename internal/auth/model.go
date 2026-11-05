@@ -8,12 +8,13 @@ type LoginRequestDTO struct {
 }
 
 type Credential struct {
-	UserID       string    `json:"user_id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"password_hash"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	UserID          string    `json:"user_id"`
+	Email           string    `json:"email"`
+	PasswordHash    string    `json:"password_hash"`
+	Status          string    `json:"status"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type SignupRequestDTO struct {
@@ -29,16 +30,18 @@ type ResendOTPDTO struct {
 
 type LoginResponseDTO struct {
 	User         LoginUserDTO `json:"user"`
-	AccessToken  string       `json:"access_token"`
-	RefreshToken string       `json:"refresh_token"`
+	AccessToken  *string      `json:"access_token"`
+	RefreshToken *string      `json:"refresh_token"`
 }
 
 type LoginUserDTO struct {
-	ID        string    `json:"id"`
-	FullName  string    `json:"full_name"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID              string    `json:"id"`
+	FullName        string    `json:"full_name"`
+	Email           string    `json:"email"`
+	Role            string    `json:"role"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type RefreshRequestDTO struct {

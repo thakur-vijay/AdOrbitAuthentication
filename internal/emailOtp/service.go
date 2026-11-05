@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html/template"
 	"math/big"
+	"time"
 
 	"github.com/thakur-vijay/adorbit-go/mailservice"
 )
@@ -157,16 +158,16 @@ func (s *Service) Send(ctx context.Context, userID, email string) error {
 	otpHash := s.generateOTPHMAC(userID, otp)
 
 	emailOTP := EmailOTP{
-		UserID:  userID,
-		OTPHash: otpHash,
+		UserID:    userID,
+		OTPHash:   otpHash,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
-	err = s.repository.Create(ctx, emailOTP)
-	if err != nil {
+
+	if err := s.repository.Upsert(ctx, emailOTP); err != nil {
 		return err
 	}
-	err = s.sendMail(ctx, otp, email)
 
-	return err
+	return s.sendMail(ctx, otp, email)
 }
 
 func (s *Service) sendMail(ctx context.Context, otp, email string) error {

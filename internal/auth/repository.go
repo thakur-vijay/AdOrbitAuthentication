@@ -51,29 +51,25 @@ func (r *Repository) UpdateCredentialStatus(
 	ctx context.Context,
 	userID string,
 	status string,
-) error {
-	result, err := r.db.ExecContext(ctx, `
+) (bool, error) {
+	var isEmailVerified bool
+	err := r.db.QueryRowContext(ctx, `
 		UPDATE credentials
 		SET
 			status = $1,
 			updated_at = NOW()
 		WHERE user_id = $2
+		RETURNING is_email_verified
 	`,
 		status,
 		userID,
-	)
+	).Scan(&isEmailVerified)
 	if err != nil {
-		return err
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
+	return isEmailVerified, nil
 }

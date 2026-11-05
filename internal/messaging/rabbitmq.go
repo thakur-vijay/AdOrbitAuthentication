@@ -73,32 +73,41 @@ type CreateUserRequest struct {
 	Role     string `json:"role"`
 }
 
-type CreateUserResponse struct {
-	UserID  string `json:"user_id,omitempty"`
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
+type FetchUserRequest struct {
+	UserID string `json:"user_id"`
+}
+
+type UserResponse struct {
+	UserID    string    `json:"user_id,omitempty"`
+	FullName  string    `json:"full_name,omitempty"`
+	Email     string    `json:"email,omitempty"`
+	Role      string    `json:"role,omitempty"`
+	Code      string    `json:"code,omitempty"`
+	Message   string    `json:"message,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (r *RabbitMQ) CreateUser(
 	ctx context.Context,
 	request CreateUserRequest,
-) (string, error) {
+) (*UserResponse, error) {
 	if r == nil || r.Connection == nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewInternal(
 			"RabbitMQ connection is not initialized",
 			nil,
 		)
 	}
 
 	if err := ctx.Err(); err != nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewRequestTimeout(
 			"Create user request was cancelled",
 			err,
 		)
 	}
 
 	if request.UserID == "" {
-		return "", apperrors.NewBadRequest(
+		return nil, apperrors.NewBadRequest(
 			"User ID is required",
 			nil,
 		)
@@ -106,7 +115,7 @@ func (r *RabbitMQ) CreateUser(
 
 	channel, err := r.Connection.Channel()
 	if err != nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewInternal(
 			"Failed to open RabbitMQ channel",
 			err,
 		)
@@ -122,7 +131,7 @@ func (r *RabbitMQ) CreateUser(
 		nil,
 	)
 	if err != nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewInternal(
 			"Failed to declare users queue",
 			err,
 		)
@@ -137,7 +146,7 @@ func (r *RabbitMQ) CreateUser(
 		nil,
 	)
 	if err != nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewInternal(
 			"Failed to declare reply queue",
 			err,
 		)
@@ -153,7 +162,7 @@ func (r *RabbitMQ) CreateUser(
 		nil,
 	)
 	if err != nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewInternal(
 			"Failed to consume reply queue",
 			err,
 		)
@@ -161,7 +170,7 @@ func (r *RabbitMQ) CreateUser(
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewInternal(
 			"Failed to encode create user request",
 			err,
 		)
@@ -188,7 +197,7 @@ func (r *RabbitMQ) CreateUser(
 		},
 	)
 	if err != nil {
-		return "", apperrors.NewInternal(
+		return nil, apperrors.NewInternal(
 			"Failed to publish create user request",
 			err,
 		)
@@ -197,14 +206,14 @@ func (r *RabbitMQ) CreateUser(
 	for {
 		select {
 		case <-ctx.Done():
-			return "", apperrors.NewRequestTimeout(
+			return nil, apperrors.NewRequestTimeout(
 				"Timed out waiting for user creation response",
 				ctx.Err(),
 			)
 
 		case message, ok := <-messages:
 			if !ok {
-				return "", apperrors.NewInternal(
+				return nil, apperrors.NewInternal(
 					"RabbitMQ reply channel was closed",
 					nil,
 				)
@@ -214,10 +223,10 @@ func (r *RabbitMQ) CreateUser(
 				continue
 			}
 
-			var response CreateUserResponse
+			var response UserResponse
 
 			if err := json.Unmarshal(message.Body, &response); err != nil {
-				return "", apperrors.NewInternal(
+				return nil, apperrors.NewInternal(
 					"Invalid response from users service",
 					err,
 				)
@@ -226,13 +235,13 @@ func (r *RabbitMQ) CreateUser(
 			if response.Code != "" {
 				switch response.Code {
 				case "USER_ALREADY_EXISTS":
-					return "", apperrors.NewConflict(
+					return nil, apperrors.NewConflict(
 						response.Message,
 						nil,
 					)
 
 				default:
-					return "", apperrors.NewInternal(
+					return nil, apperrors.NewInternal(
 						response.Message,
 						nil,
 					)
@@ -240,20 +249,199 @@ func (r *RabbitMQ) CreateUser(
 			}
 
 			if response.UserID == "" {
-				return "", apperrors.NewInternal(
+				return nil, apperrors.NewInternal(
 					"Users service returned an empty user ID",
 					nil,
 				)
 			}
 
 			if response.UserID != request.UserID {
-				return "", apperrors.NewInternal(
+				return nil, apperrors.NewInternal(
 					"Users service returned an unexpected user ID",
 					nil,
 				)
 			}
 
-			return response.UserID, nil
+			return &response, nil
+		}
+	}
+}
+
+func (r *RabbitMQ) FetchUser(
+	ctx context.Context,
+	request FetchUserRequest,
+) (*UserResponse, error) {
+	if r == nil || r.Connection == nil {
+		return nil, apperrors.NewInternal(
+			"RabbitMQ connection is not initialized",
+			nil,
+		)
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, apperrors.NewInternal(
+			"Fetch user request was cancelled",
+			err,
+		)
+	}
+
+	if request.UserID == "" {
+		return nil, apperrors.NewBadRequest(
+			"User ID is required",
+			nil,
+		)
+	}
+
+	channel, err := r.Connection.Channel()
+	if err != nil {
+		return nil, apperrors.NewInternal(
+			"Failed to open RabbitMQ channel",
+			err,
+		)
+	}
+	defer channel.Close()
+
+	queue, err := channel.QueueDeclare(
+		"users.fetch",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, apperrors.NewInternal(
+			"Failed to declare users queue",
+			err,
+		)
+	}
+
+	replyQueue, err := channel.QueueDeclare(
+		"",
+		false,
+		true,
+		true,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, apperrors.NewInternal(
+			"Failed to declare reply queue",
+			err,
+		)
+	}
+
+	messages, err := channel.Consume(
+		replyQueue.Name,
+		"",
+		true,
+		true,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, apperrors.NewInternal(
+			"Failed to consume reply queue",
+			err,
+		)
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, apperrors.NewInternal(
+			"Failed to encode fetch user request",
+			err,
+		)
+	}
+
+	correlationID := fmt.Sprintf(
+		"%s-%d",
+		request.UserID,
+		time.Now().UnixNano(),
+	)
+
+	err = channel.PublishWithContext(
+		ctx,
+		"",
+		queue.Name,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:   "application/json",
+			CorrelationId: correlationID,
+			ReplyTo:       replyQueue.Name,
+			Body:          body,
+			DeliveryMode:  amqp.Persistent,
+		},
+	)
+	if err != nil {
+		return nil, apperrors.NewInternal(
+			"Failed to publish fetch user request",
+			err,
+		)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, apperrors.NewRequestTimeout(
+				"Timed out waiting for user fetch response",
+				ctx.Err(),
+			)
+
+		case message, ok := <-messages:
+			if !ok {
+				return nil, apperrors.NewInternal(
+					"RabbitMQ reply channel was closed",
+					nil,
+				)
+			}
+
+			if message.CorrelationId != correlationID {
+				continue
+			}
+
+			var response UserResponse
+
+			if err := json.Unmarshal(message.Body, &response); err != nil {
+				return nil, apperrors.NewInternal(
+					"Invalid response from users service",
+					err,
+				)
+			}
+
+			if response.Code != "" {
+				switch response.Code {
+				case "USER_NOT_FOUND":
+					return nil, apperrors.NewNotFound(
+						response.Message,
+						nil,
+					)
+
+				default:
+					return nil, apperrors.NewInternal(
+						response.Message,
+						nil,
+					)
+				}
+			}
+
+			if response.UserID == "" {
+				return nil, apperrors.NewInternal(
+					"Users service returned an empty user ID",
+					nil,
+				)
+			}
+
+			if response.UserID != request.UserID {
+				return nil, apperrors.NewInternal(
+					"Users service returned an unexpected user ID",
+					nil,
+				)
+			}
+
+			return &response, nil
 		}
 	}
 }

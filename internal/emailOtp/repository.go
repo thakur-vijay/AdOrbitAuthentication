@@ -13,6 +13,56 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) Upsert(ctx context.Context, otp EmailOTP) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO email_otps (
+			user_id,
+			otp_hash,
+			expires_at,
+			attempts,
+			verified_at,
+			last_sent_at
+		)
+		VALUES ($1, $2, $3, 0, NULL, NOW())
+		ON CONFLICT (user_id)
+		DO UPDATE SET
+			otp_hash = EXCLUDED.otp_hash,
+			expires_at = EXCLUDED.expires_at,
+			attempts = 0,
+			verified_at = NULL,
+			last_sent_at = NOW(),
+			updated_at = NOW()`,
+		otp.UserID,
+		otp.OTPHash,
+		otp.ExpiresAt,
+	)
+
+	return err
+}
+
+func (r *Repository) CheckResendCooldown(
+	ctx context.Context,
+	userID string,
+) (bool, error) {
+	var allowed bool
+
+	err := r.db.QueryRowContext(ctx,
+		`UPDATE email_otps
+		 SET last_sent_at = NOW()
+		 WHERE user_id = $1
+		   AND last_sent_at <= NOW() - INTERVAL '60 seconds'
+		   AND verified_at IS NULL
+		 RETURNING TRUE`,
+		userID,
+	).Scan(&allowed)
+
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+
+	return allowed, err
+}
+
 func (r *Repository) Create(ctx context.Context, otp EmailOTP) error {
 	_, err := r.db.ExecContext(ctx, `INSERT INTO email_otps (user_id, otp_hash) VALUES ($1, $2)`, otp.UserID, otp.OTPHash)
 	return err
