@@ -20,6 +20,7 @@ type Config struct {
 	IdempotencyScopeKey      []byte
 	IdempotencyEncryptionKey []byte
 	OTP_HMAC_SECRET          []byte
+	SWAGGER_HOST             string
 }
 
 func Load() (*Config, error) {
@@ -50,6 +51,7 @@ func Load() (*Config, error) {
 		IdempotencyScopeKey:      scopeKey,
 		IdempotencyEncryptionKey: encryptionKey,
 		OTP_HMAC_SECRET:          OTPHMACSecret,
+		SWAGGER_HOST:             getEnv("SWAGGER_HOST", ""),
 	}
 
 	if cfg.DatabaseURL == "" {

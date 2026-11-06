@@ -19,7 +19,7 @@ type Credential struct {
 
 type SignupRequestDTO struct {
 	FullName string `json:"full_name" validate:"required"`
-	Email    string `json:"email" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
 	Role     string `json:"role" validate:"required,oneof=advertiser publisher"`
 	Password string `json:"password" validate:"required,valid_password"`
 }
@@ -51,4 +51,15 @@ type RefreshRequestDTO struct {
 type RefreshResponseDTO struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type APIResponse struct {
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
+	Data       any    `json:"data,omitempty"`
+}
+
+type APIErrorResponse struct {
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
 }

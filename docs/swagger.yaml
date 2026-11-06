@@ -1,4 +1,283 @@
+basePath: /api/v1
+definitions:
+  auth.APIErrorResponse:
+    properties:
+      message:
+        type: string
+      status_code:
+        type: integer
+    type: object
+  auth.APIResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      status_code:
+        type: integer
+    type: object
+  auth.LoginRequestDTO:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.LoginResponseDTO:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/auth.LoginUserDTO'
+    type: object
+  auth.LoginUserDTO:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      is_email_verified:
+        type: boolean
+      role:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  auth.RefreshRequestDTO:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  auth.RefreshResponseDTO:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  auth.ResendOTPDTO:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  auth.SignupRequestDTO:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        type: string
+      role:
+        enum:
+        - advertiser
+        - publisher
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    - role
+    type: object
+host: localhost:8081
 info:
   contact: {}
-paths: {}
+  description: Authentication service for AdOrbit.
+  title: AdOrbit Authentication API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and returns session tokens when email verification
+        is complete.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequestDTO'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            allOf:
+            - $ref: '#/definitions/auth.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.LoginResponseDTO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      summary: Login user
+      tags:
+      - Authentication
+  /auth/logout:
+    post:
+      description: Invalidates the authenticated user's session.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - Authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generates new access and refresh tokens.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshRequestDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/auth.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.RefreshResponseDTO'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Refresh authentication tokens
+      tags:
+      - Authentication
+  /auth/resendOTP:
+    post:
+      consumes:
+      - application/json
+      description: Sends a new email verification OTP.
+      parameters:
+      - description: Email address
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.ResendOTPDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      summary: Resend email verification OTP
+      tags:
+      - Authentication
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new advertiser or publisher account and initiates email
+        verification.
+      parameters:
+      - description: UUID used to safely retry signup
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Signup details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SignupRequestDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/auth.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.LoginResponseDTO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      summary: Register a new user
+      tags:
+      - Authentication
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Enter your JWT token with Bearer prefix.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
