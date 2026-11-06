@@ -257,7 +257,6 @@ func (s *Service) Login(
 		}
 	} else {
 		return nil, apperrors.NewUnauthorized("Invalid email or password.", nil)
-
 	}
 }
 
@@ -304,7 +303,7 @@ func (s *Service) sendOTP(ctx context.Context, userID, email string) error {
 }
 
 func (s *Service) fetchUser(ctx context.Context, userID string, isEmailVerified bool) (*LoginUserDTO, error) {
-	rabbitCtx, rabbitCancel := context.WithTimeout(ctx, 30*time.Second)
+	rabbitCtx, rabbitCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer rabbitCancel()
 	user, err := s.rabbitMQ.FetchUser(
 		rabbitCtx,

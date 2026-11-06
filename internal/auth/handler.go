@@ -34,7 +34,21 @@ func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	var loginRequest LoginRequestDTO
+	ctx := r.Context()
+	if err := response.DecodeJSONAndValidate(r, &loginRequest); err != nil {
+		appError := apperrors.NewBadRequest(err.Error(), nil)
+		response.Write(w, appError.StatusCode, appError.Message)
+		return
+	}
 
+	user, err := h.service.Login(ctx, loginRequest)
+	if err != nil {
+		response.WriteError(w, err)
+		return
+	}
+
+	response.WriteItem(w, http.StatusAccepted, "User logged in successfully.", user)
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {

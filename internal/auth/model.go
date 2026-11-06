@@ -3,7 +3,7 @@ package auth
 import "time"
 
 type LoginRequestDTO struct {
-	Email    string `json:"email" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
@@ -30,8 +30,8 @@ type ResendOTPDTO struct {
 
 type LoginResponseDTO struct {
 	User         LoginUserDTO `json:"user"`
-	AccessToken  *string      `json:"access_token"`
-	RefreshToken *string      `json:"refresh_token"`
+	AccessToken  *string      `json:"access_token,omitempty"`
+	RefreshToken *string      `json:"refresh_token,omitempty"`
 }
 
 type LoginUserDTO struct {
