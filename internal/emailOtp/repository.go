@@ -3,6 +3,7 @@ package emailotp
 import (
 	"context"
 	"database/sql"
+	"errors"
 )
 
 type Repository struct {
@@ -16,7 +17,7 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) Upsert(ctx context.Context, otp EmailOTP) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO email_otps (
-			email,
+			user_id,
 			otp_hash,
 			expires_at,
 			attempts,
@@ -24,7 +25,7 @@ func (r *Repository) Upsert(ctx context.Context, otp EmailOTP) error {
 			last_sent_at
 		)
 		VALUES ($1, $2, $3, 0, NULL, NOW())
-		ON CONFLICT (email)
+		ON CONFLICT (user_id)
 		DO UPDATE SET
 			otp_hash = EXCLUDED.otp_hash,
 			expires_at = EXCLUDED.expires_at,
@@ -32,7 +33,7 @@ func (r *Repository) Upsert(ctx context.Context, otp EmailOTP) error {
 			verified_at = NULL,
 			last_sent_at = NOW(),
 			updated_at = NOW()`,
-		otp.Email,
+		otp.UserID,
 		otp.OTPHash,
 		otp.ExpiresAt,
 	)
@@ -48,7 +49,8 @@ func (r *Repository) CheckResendCooldown(
 
 	err := r.db.QueryRowContext(ctx,
 		`UPDATE email_otps
-		 SET last_sent_at = NOW()
+		 SET last_sent_at = NOW(),
+		     updated_at = NOW()
 		 WHERE user_id = $1
 		   AND last_sent_at <= NOW() - INTERVAL '60 seconds'
 		   AND verified_at IS NULL
@@ -56,32 +58,32 @@ func (r *Repository) CheckResendCooldown(
 		userID,
 	).Scan(&allowed)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
 
 	return allowed, err
 }
 
-func (r *Repository) GetByEmail(
+func (r *Repository) GetByUserID(
 	ctx context.Context,
-	email string,
+	userID string,
 ) (*EmailOTP, error) {
 	var otp EmailOTP
 
 	err := r.db.QueryRowContext(ctx,
 		`SELECT
-			email,
+			user_id,
 			otp_hash,
 			expires_at,
 			attempts,
 			max_attempts,
 			verified_at
 		FROM email_otps
-		WHERE email = $1`,
-		email,
+		WHERE user_id = $1`,
+		userID,
 	).Scan(
-		&otp.Email,
+		&otp.UserID,
 		&otp.OTPHash,
 		&otp.ExpiresAt,
 		&otp.Attempts,
@@ -96,30 +98,36 @@ func (r *Repository) GetByEmail(
 	return &otp, nil
 }
 
-func (r *Repository) IncrementAttempts(ctx context.Context, email string) error {
+func (r *Repository) IncrementAttempts(
+	ctx context.Context,
+	userID string,
+) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE email_otps
 		 SET attempts = attempts + 1,
 		     updated_at = NOW()
-		 WHERE email = $1
+		 WHERE user_id = $1
 		   AND attempts < max_attempts
 		   AND verified_at IS NULL`,
-		email,
+		userID,
 	)
 
 	return err
 }
 
-func (r *Repository) MarkVerified(ctx context.Context, email string) error {
+func (r *Repository) MarkVerified(
+	ctx context.Context,
+	userID string,
+) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE email_otps
 		 SET verified_at = NOW(),
 		     updated_at = NOW()
-		 WHERE email = $1
+		 WHERE user_id = $1
 		   AND expires_at > NOW()
 		   AND attempts < max_attempts
 		   AND verified_at IS NULL`,
-		email,
+		userID,
 	)
 	if err != nil {
 		return err

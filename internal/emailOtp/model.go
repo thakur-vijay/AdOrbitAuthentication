@@ -4,7 +4,7 @@ import "time"
 
 type EmailOTP struct {
 	ID          string     `json:"id"`
-	Email       string     `json:"email"`
+	UserID      string     `json:"user_id"`
 	OTPHash     string     `json:"-"`
 	ExpiresAt   time.Time  `json:"expires_at"`
 	Attempts    int16      `json:"attempts"`

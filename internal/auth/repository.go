@@ -15,11 +15,12 @@ func NewRepository(db *sql.DB) *Repository {
 
 func (r *Repository) FetchByEmail(ctx context.Context, email string) (*Credential, error) {
 	var credential Credential
-	err := r.db.QueryRowContext(ctx, `SELECT user_id, email, password_hash, status, created_at, updated_at FROM credentials WHERE email = $1`, email).Scan(
+	err := r.db.QueryRowContext(ctx, `SELECT user_id, email, password_hash, status, is_email_verified, created_at, updated_at FROM credentials WHERE email = $1`, email).Scan(
 		&credential.UserID,
 		&credential.Email,
 		&credential.PasswordHash,
 		&credential.Status,
+		&credential.IsEmailVerified,
 		&credential.CreatedAt,
 		&credential.UpdatedAt,
 	)
@@ -72,4 +73,21 @@ func (r *Repository) UpdateCredentialStatus(
 	}
 
 	return isEmailVerified, nil
+}
+
+func (r *Repository) UpdateIsEmailVerified(
+	ctx context.Context,
+	userID string,
+) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE credentials
+		SET
+			is_email_verified = true,
+			updated_at = NOW()
+		WHERE user_id = $1
+	`,
+		userID,
+	)
+
+	return err
 }

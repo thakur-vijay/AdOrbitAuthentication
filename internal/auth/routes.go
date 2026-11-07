@@ -47,4 +47,22 @@ func RegisterRoutes(
 		"POST /auth/refresh",
 		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Refresh)),
 	)
+
+	verifyOTPHandler := idempotencyMiddleware.RequireIdempotencyKey(
+		idempotencyMiddleware.RequireIdempotency("auth.verifyOTP")(
+			http.HandlerFunc(handler.VerifyOTP),
+		),
+	)
+
+	mux.Handle("POST /auth/verifyOTP", http.HandlerFunc(func(
+		w http.ResponseWriter,
+		r *http.Request,
+	) {
+		ctx := idempotency.WithIdempotencyScope(
+			r.Context(),
+			"public:verifyOTP",
+		)
+
+		verifyOTPHandler.ServeHTTP(w, r.WithContext(ctx))
+	}))
 }

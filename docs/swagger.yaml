@@ -89,6 +89,16 @@ definitions:
     - password
     - role
     type: object
+  auth.VerifyOTPDTO:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - otp
+    type: object
 host: localhost:8081
 info:
   contact: {}
@@ -269,6 +279,50 @@ paths:
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
       summary: Register a new user
+      tags:
+      - Authentication
+  /auth/verifyOTP:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the email verification OTP and completes authentication.
+      parameters:
+      - description: UUID used to safely retry OTP verification
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Email and OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.VerifyOTPDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/auth.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.LoginResponseDTO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      summary: Verify email OTP
       tags:
       - Authentication
 schemes:

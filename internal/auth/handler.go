@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/thakur-vijay/adorbit-go/apperrors"
@@ -133,4 +134,37 @@ func (h *Handler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 // @Router /auth/refresh [post]
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 
+}
+
+// VerifyOTP godoc
+// @Summary Verify email OTP
+// @Description Verifies the email verification OTP and completes authentication.
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param Idempotency-Key header string true "UUID used to safely retry OTP verification"
+// @Param request body VerifyOTPDTO true "Email and OTP"
+// @Success 200 {object} APIResponse{data=LoginResponseDTO}
+// @Failure 400 {object} APIErrorResponse
+// @Failure 401 {object} APIErrorResponse
+// @Failure 500 {object} APIErrorResponse
+// @Router /auth/verifyOTP [post]
+func (h *Handler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
+	var verifyOTPDTO VerifyOTPDTO
+	ctx := r.Context()
+
+	if err := response.DecodeJSONAndValidate(r, &verifyOTPDTO); err != nil {
+		appError := apperrors.NewBadRequest(err.Error(), nil)
+		response.Write(w, appError.StatusCode, appError.Message)
+		return
+	}
+
+	user, err := h.service.VerifyOTP(ctx, verifyOTPDTO)
+	if err != nil {
+		log.Printf(err.Error())
+		response.WriteError(w, err)
+		return
+	}
+
+	response.WriteItem(w, http.StatusOK, "Email verified successfully.", user)
 }
