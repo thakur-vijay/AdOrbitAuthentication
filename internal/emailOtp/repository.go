@@ -16,7 +16,7 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) Upsert(ctx context.Context, otp EmailOTP) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO email_otps (
-			user_id,
+			email,
 			otp_hash,
 			expires_at,
 			attempts,
@@ -24,7 +24,7 @@ func (r *Repository) Upsert(ctx context.Context, otp EmailOTP) error {
 			last_sent_at
 		)
 		VALUES ($1, $2, $3, 0, NULL, NOW())
-		ON CONFLICT (user_id)
+		ON CONFLICT (email)
 		DO UPDATE SET
 			otp_hash = EXCLUDED.otp_hash,
 			expires_at = EXCLUDED.expires_at,
@@ -32,7 +32,7 @@ func (r *Repository) Upsert(ctx context.Context, otp EmailOTP) error {
 			verified_at = NULL,
 			last_sent_at = NOW(),
 			updated_at = NOW()`,
-		otp.UserID,
+		otp.Email,
 		otp.OTPHash,
 		otp.ExpiresAt,
 	)
@@ -63,95 +63,76 @@ func (r *Repository) CheckResendCooldown(
 	return allowed, err
 }
 
-func (r *Repository) Create(ctx context.Context, otp EmailOTP) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO email_otps (user_id, otp_hash) VALUES ($1, $2)`, otp.UserID, otp.OTPHash)
-	return err
-}
-
-func (r *Repository) FetchByUserID(ctx context.Context, userID string) (*EmailOTP, error) {
-	var emailOTP EmailOTP
+func (r *Repository) GetByEmail(
+	ctx context.Context,
+	email string,
+) (*EmailOTP, error) {
+	var otp EmailOTP
 
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, otp_hash, expires_at, attempts, max_attempts, verified_at, created_at, updated_at
-		 FROM email_otps
-		 WHERE user_id = $1`,
-		userID,
+		`SELECT
+			email,
+			otp_hash,
+			expires_at,
+			attempts,
+			max_attempts,
+			verified_at
+		FROM email_otps
+		WHERE email = $1`,
+		email,
 	).Scan(
-		&emailOTP.ID,
-		&emailOTP.UserID,
-		&emailOTP.OTPHash,
-		&emailOTP.ExpiresAt,
-		&emailOTP.Attempts,
-		&emailOTP.MaxAttempts,
-		&emailOTP.VerifiedAt,
-		&emailOTP.CreatedAt,
-		&emailOTP.UpdatedAt,
+		&otp.Email,
+		&otp.OTPHash,
+		&otp.ExpiresAt,
+		&otp.Attempts,
+		&otp.MaxAttempts,
+		&otp.VerifiedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &emailOTP, nil
+	return &otp, nil
 }
 
-func (r *Repository) UpdateAttempts(ctx context.Context, userID string, attempts int) error {
+func (r *Repository) IncrementAttempts(ctx context.Context, email string) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE email_otps
-		 SET attempts = $1,
+		 SET attempts = attempts + 1,
 		     updated_at = NOW()
-		 WHERE user_id = $2`,
-		attempts,
-		userID,
+		 WHERE email = $1
+		   AND attempts < max_attempts
+		   AND verified_at IS NULL`,
+		email,
 	)
 
 	return err
 }
 
-func (r *Repository) MarkAsVerified(ctx context.Context, userID string) error {
-	_, err := r.db.ExecContext(ctx,
+func (r *Repository) MarkVerified(ctx context.Context, email string) error {
+	result, err := r.db.ExecContext(ctx,
 		`UPDATE email_otps
 		 SET verified_at = NOW(),
 		     updated_at = NOW()
-		 WHERE user_id = $1 AND verified_at IS NULL`,
-		userID,
+		 WHERE email = $1
+		   AND expires_at > NOW()
+		   AND attempts < max_attempts
+		   AND verified_at IS NULL`,
+		email,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
-}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
 
-func (r *Repository) DeleteByUserID(ctx context.Context, userID string) error {
-	_, err := r.db.ExecContext(ctx,
-		`DELETE FROM email_otps WHERE user_id = $1`,
-		userID,
-	)
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
 
-	return err
-}
-
-func (r *Repository) DeleteExpired(ctx context.Context) error {
-	_, err := r.db.ExecContext(ctx,
-		`DELETE FROM email_otps
-		 WHERE expires_at <= NOW()
-		 AND verified_at IS NULL`,
-	)
-
-	return err
-}
-
-func (r *Repository) UpdateOTP(ctx context.Context, otp EmailOTP) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE email_otps
-		 SET otp_hash = $1,
-		     expires_at = $2,
-		     attempts = 0,
-		     verified_at = NULL,
-		     updated_at = NOW()
-		 WHERE user_id = $3`,
-		otp.OTPHash,
-		otp.ExpiresAt,
-		otp.UserID,
-	)
-
-	return err
+	return nil
 }

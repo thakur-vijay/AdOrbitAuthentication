@@ -7,9 +7,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"html/template"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/thakur-vijay/adorbit-go/mailservice"
@@ -149,16 +151,16 @@ func NewService(mailService mailservice.Service, repository *Repository, otpHMAC
 	}
 }
 
-func (s *Service) Send(ctx context.Context, userID, email string) error {
+func (s *Service) Send(ctx context.Context, email string) error {
 	otp, err := generateOTP()
 	if err != nil {
 		return err
 	}
 
-	otpHash := s.generateOTPHMAC(userID, otp)
+	otpHash := s.generateOTPHMAC(email, otp)
 
 	emailOTP := EmailOTP{
-		UserID:    userID,
+		Email:     email,
 		OTPHash:   otpHash,
 		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
@@ -168,6 +170,41 @@ func (s *Service) Send(ctx context.Context, userID, email string) error {
 	}
 
 	return s.sendMail(ctx, otp, email)
+}
+
+func (s *Service) Verify(ctx context.Context, email, otp string) error {
+	//  1. Email normalize karega.
+	email = strings.ToLower(strings.TrimSpace(email))
+	// 2. Email ke against OTP record fetch karega.
+	emailOTP, err := s.repository.GetByEmail(ctx, email)
+	// 3. Record exist nahi karta toh error return karega.
+	if err != nil {
+		return err
+	}
+	// 4. Check karega OTP already verified toh nahi hai.
+	if emailOTP.VerifiedAt != nil {
+		return errors.New("OTP is already verified.")
+	}
+	// 5. Check karega OTP expired toh nahi hai.
+	if !time.Now().Before(emailOTP.ExpiresAt) {
+		return errors.New("OTP is expired. Send new one.")
+	}
+	// 6. Check karega maximum verification attempts exceed toh nahi hue.
+	if emailOTP.Attempts >= emailOTP.MaxAttempts {
+		return errors.New("Max Limit reached.")
+	}
+	// 7. Provided OTP ka HMAC generate karega.
+	OTPHash := s.generateOTPHMAC(email, otp)
+	// 8. Stored HMAC ke saath constant-time comparison karega.
+
+	if !hmac.Equal([]byte(OTPHash), []byte(emailOTP.OTPHash)) {
+		if err := s.repository.IncrementAttempts(ctx, email); err != nil {
+			return err
+		}
+
+		return errors.New("OTP is invalid.")
+	}
+	return s.repository.MarkVerified(ctx, email)
 }
 
 func (s *Service) sendMail(ctx context.Context, otp, email string) error {
@@ -206,9 +243,9 @@ func generateOTP() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()+100000), nil
 }
 
-func (s *Service) generateOTPHMAC(userID, otp string) string {
+func (s *Service) generateOTPHMAC(email, otp string) string {
 	mac := hmac.New(sha256.New, s.otpHMACSecret)
-	mac.Write([]byte(userID + ":" + otp))
+	mac.Write([]byte(email + ":" + otp))
 
 	return hex.EncodeToString(mac.Sum(nil))
 }

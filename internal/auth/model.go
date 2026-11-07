@@ -28,6 +28,11 @@ type ResendOTPDTO struct {
 	Email string `json:"email" validate:"required,email"`
 }
 
+type VerifyOTPDTO struct {
+	Email string `json:"email" validate:"required,email"`
+	OTP   string `json:"otp" validate:"required,len=6,numeric"`
+}
+
 type LoginResponseDTO struct {
 	User         LoginUserDTO `json:"user"`
 	AccessToken  *string      `json:"access_token,omitempty"`

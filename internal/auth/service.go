@@ -164,7 +164,7 @@ func (s *Service) Signup(
 	}
 
 	if !isEmailVerified {
-		err = s.sendOTP(ctx, userID, request.Email)
+		err = s.sendOTP(ctx, request.Email)
 
 		if err != nil {
 			return nil, err
@@ -227,7 +227,7 @@ func (s *Service) Login(
 						RefreshToken: &tokens.RefreshToken,
 					}, nil
 				} else {
-					err := s.sendOTP(ctx, credential.UserID, credential.Email)
+					err := s.sendOTP(ctx, credential.Email)
 					if err != nil {
 						return nil, err
 					}
@@ -260,16 +260,25 @@ func (s *Service) Login(
 	}
 }
 
+func (s *Service) VerifyOTP(ctx context.Context, dto VerifyOTPDTO) (*LoginResponseDTO, error) {
+	err := s.otpService.Verify(ctx, dto.Email, dto.OTP)
+	if err != nil {
+		return nil, err
+	}
+
+	//if verified, then, update isEmailVerified in Credentails,  fetch user and create sessions and then return user with response,
+}
+
 func (s *Service) ResendOTP(ctx context.Context, dto ResendOTPDTO) error {
 	// existingCredential, err := s.repository.FetchByEmail(
 	// 	ctx,
 	// 	dto.Email,
 	// )
 	// if existingCredential != nil {
-	err := s.otpService.Send(ctx, "4777abd7-7840-4e73-a0d8-afbcfb232326", dto.Email)
+	err := s.otpService.Send(ctx, dto.Email)
 	// }
 	log.Printf("ERROR IS", err)
-	return s.sendOTP(ctx, "4777abd7-7840-4e73-a0d8-afbcfb232326", dto.Email)
+	return s.sendOTP(ctx, dto.Email)
 }
 
 // /helping methods
@@ -295,11 +304,11 @@ func (s *Service) createSessions(ctx context.Context, userID string) (*jwt.Token
 	}
 }
 
-func (s *Service) sendOTP(ctx context.Context, userID, email string) error {
+func (s *Service) sendOTP(ctx context.Context, email string) error {
 	otpCtx, otpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer otpCancel()
 
-	return s.otpService.Send(otpCtx, userID, email)
+	return s.otpService.Send(otpCtx, email)
 }
 
 func (s *Service) fetchUser(ctx context.Context, userID string, isEmailVerified bool) (*LoginUserDTO, error) {
