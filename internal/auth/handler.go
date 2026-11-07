@@ -154,7 +154,7 @@ func (h *Handler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param request body RefreshTokenRequestDTO true "Refresh token"
-// @Success 200 {object} APIResponse{data=RefreshResponseDTO} "Tokens refreshed successfully"
+// @Success 200 {object} APIResponse{data=RefreshTokenResponseDTO} "Tokens refreshed successfully"
 // @Failure 400 {object} APIErrorResponse "Invalid request or missing refresh token"
 // @Failure 401 {object} APIErrorResponse "Invalid, expired, revoked, or reused refresh token"
 // @Failure 409 {object} APIErrorResponse "Refresh token rotation conflict"
