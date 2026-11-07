@@ -51,18 +51,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  auth.RefreshRequestDTO:
-    properties:
-      refresh_token:
-        type: string
-    type: object
-  auth.RefreshResponseDTO:
-    properties:
-      access_token:
-        type: string
-      refresh_token:
-        type: string
-    type: object
   auth.ResendOTPDTO:
     properties:
       email:
@@ -148,62 +136,6 @@ paths:
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
       summary: Login user
-      tags:
-      - Authentication
-  /auth/logout:
-    post:
-      description: Invalidates the authenticated user's session.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.APIResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/auth.APIErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Logout user
-      tags:
-      - Authentication
-  /auth/refresh:
-    post:
-      consumes:
-      - application/json
-      description: Generates new access and refresh tokens.
-      parameters:
-      - description: Refresh token
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth.RefreshRequestDTO'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/auth.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/auth.RefreshResponseDTO'
-              type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/auth.APIErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/auth.APIErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Refresh authentication tokens
       tags:
       - Authentication
   /auth/resendOTP:

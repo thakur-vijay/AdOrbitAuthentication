@@ -28,6 +28,15 @@ type ResendOTPDTO struct {
 	Email string `json:"email" validate:"required,email"`
 }
 
+type RefreshTokenRequestDTO struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+type RefreshTokenResponseDTO struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
 type VerifyOTPDTO struct {
 	Email string `json:"email" validate:"required,email"`
 	OTP   string `json:"otp" validate:"required,len=6,numeric"`
@@ -47,15 +56,6 @@ type LoginUserDTO struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
-}
-
-type RefreshRequestDTO struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-type RefreshResponseDTO struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
 }
 
 type APIResponse struct {

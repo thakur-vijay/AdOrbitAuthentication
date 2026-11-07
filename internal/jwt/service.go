@@ -231,16 +231,13 @@ func (s *Service) RefreshSession(
 
 func (s *Service) Logout(
 	ctx context.Context,
-	refreshToken string,
+	userID string,
 ) error {
-	if refreshToken == "" {
-		return errors.New("missing refresh token")
+	if userID == "" {
+		return errors.New("missing user ID")
 	}
 
-	return s.repository.RevokeByHash(
-		ctx,
-		hashRefreshToken(refreshToken),
-	)
+	return s.repository.RevokeByUserID(ctx, userID)
 }
 
 // PublicKey returns the public key for other services to verify JWTs.

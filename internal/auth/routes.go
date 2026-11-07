@@ -13,6 +13,7 @@ func RegisterRoutes(
 	jwtMiddleware *middleware.JWTMiddleware,
 	idempotencyMiddleware *idempotency.Middleware,
 ) {
+	// Signup
 	signupHandler := idempotencyMiddleware.RequireIdempotencyKey(
 		idempotencyMiddleware.RequireIdempotency("auth.signup")(
 			http.HandlerFunc(handler.Signup),
@@ -27,27 +28,27 @@ func RegisterRoutes(
 			r.Context(),
 			"public:signup",
 		)
-
 		signupHandler.ServeHTTP(w, r.WithContext(ctx))
 	}))
 
+	// Login
 	mux.HandleFunc("POST /auth/login", handler.Login)
 
+	// Logout
 	mux.Handle(
 		"POST /auth/logout",
-		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Logout)),
+		jwtMiddleware.RequireAuth(
+			http.HandlerFunc(handler.Logout),
+		),
 	)
 
-	mux.Handle(
-		"POST /auth/resendOTP",
-		http.HandlerFunc(handler.ResendOTP),
-	)
+	// Resend OTP
+	mux.HandleFunc("POST /auth/resendOTP", handler.ResendOTP)
 
-	mux.Handle(
-		"POST /auth/refresh",
-		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Refresh)),
-	)
+	// Refresh
+	mux.HandleFunc("POST /auth/refresh", handler.Refresh)
 
+	// Verify OTP
 	verifyOTPHandler := idempotencyMiddleware.RequireIdempotencyKey(
 		idempotencyMiddleware.RequireIdempotency("auth.verifyOTP")(
 			http.HandlerFunc(handler.VerifyOTP),
@@ -62,7 +63,6 @@ func RegisterRoutes(
 			r.Context(),
 			"public:verifyOTP",
 		)
-
 		verifyOTPHandler.ServeHTTP(w, r.WithContext(ctx))
 	}))
 }

@@ -324,6 +324,29 @@ func (s *Service) ResendOTP(
 	return s.sendOTP(ctx, credentials.UserID, credentials.Email)
 }
 
+func (s *Service) Logout(
+	ctx context.Context,
+	userID string,
+) error {
+	return s.jwtService.Logout(ctx, userID)
+}
+
+func (s *Service) Refresh(
+	ctx context.Context,
+	dto RefreshTokenRequestDTO,
+) (*RefreshTokenResponseDTO, error) {
+	pair, err := s.jwtService.RefreshSession(ctx, dto.RefreshToken)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &RefreshTokenResponseDTO{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+	}, nil
+}
+
 // /helping methods
 func (s *Service) createSessions(ctx context.Context, userID string) (*jwt.TokenPair, error) {
 	sessionCtx, sessionCancel := context.WithTimeout(
