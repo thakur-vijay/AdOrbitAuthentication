@@ -56,12 +56,13 @@ func hashRefreshToken(token string) string {
 }
 
 func (s *Service) generateAccessToken(
-	userID string,
+	userID, role string,
 ) (string, error) {
 	now := time.Now().UTC()
 
 	claims := Claims{
 		UserID:    userID,
+		Role:      role,
 		Issuer:    s.issuer,
 		Subject:   userID,
 		ID:        uuid.NewString(),
@@ -80,9 +81,9 @@ func (s *Service) generateAccessToken(
 
 func (s *Service) CreateSession(
 	ctx context.Context,
-	userID string,
+	userID, role string,
 ) (TokenPair, error) {
-	accessToken, err := s.generateAccessToken(userID)
+	accessToken, err := s.generateAccessToken(userID, role)
 	if err != nil {
 		return TokenPair{}, err
 	}
@@ -147,12 +148,15 @@ func (s *Service) ValidateAccessToken(
 		return nil, errors.New("invalid access token")
 	}
 
-	if claims.UserID == "" || claims.Subject != claims.UserID {
+	if claims.UserID == "" ||
+		claims.Subject != claims.UserID ||
+		claims.Role == "" {
 		return nil, errors.New("invalid token claims")
 	}
 
 	return &Principal{
 		UserID: claims.UserID,
+		Role:   claims.Role,
 	}, nil
 }
 
@@ -185,14 +189,14 @@ func (s *Service) ValidateRefreshToken(
 
 func (s *Service) RefreshSession(
 	ctx context.Context,
-	refreshToken string,
+	refreshToken, role string,
 ) (TokenPair, error) {
 	record, err := s.ValidateRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return TokenPair{}, err
 	}
 
-	newAccessToken, err := s.generateAccessToken(record.UserID)
+	newAccessToken, err := s.generateAccessToken(record.UserID, role)
 	if err != nil {
 		return TokenPair{}, err
 	}

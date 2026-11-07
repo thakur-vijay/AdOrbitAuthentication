@@ -75,6 +75,7 @@ type CreateUserRequest struct {
 
 type FetchUserRequest struct {
 	UserID string `json:"user_id"`
+	Role   string `json:"role"`
 }
 
 type UserResponse struct {
@@ -109,6 +110,13 @@ func (r *RabbitMQ) CreateUser(
 	if request.UserID == "" {
 		return nil, apperrors.NewBadRequest(
 			"User ID is required",
+			nil,
+		)
+	}
+
+	if request.Role == "" {
+		return nil, apperrors.NewBadRequest(
+			"Role is required",
 			nil,
 		)
 	}
@@ -292,6 +300,13 @@ func (r *RabbitMQ) FetchUser(
 		)
 	}
 
+	if request.Role == "" {
+		return nil, apperrors.NewBadRequest(
+			"Role is required",
+			nil,
+		)
+	}
+
 	channel, err := r.Connection.Channel()
 	if err != nil {
 		return nil, apperrors.NewInternal(
@@ -437,6 +452,13 @@ func (r *RabbitMQ) FetchUser(
 			if response.UserID != request.UserID {
 				return nil, apperrors.NewInternal(
 					"Users service returned an unexpected user ID",
+					nil,
+				)
+			}
+
+			if response.Role != request.Role {
+				return nil, apperrors.NewInternal(
+					"Users service returned an unexpected user role",
 					nil,
 				)
 			}

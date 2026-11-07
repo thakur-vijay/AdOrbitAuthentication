@@ -5,6 +5,7 @@ import "time"
 type LoginRequestDTO struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
+	Role     string `json:"role" validate:"required,oneof=advertiser publisher"`
 }
 
 type Credential struct {
@@ -39,6 +40,7 @@ type RefreshTokenResponseDTO struct {
 
 type VerifyOTPDTO struct {
 	Email string `json:"email" validate:"required,email"`
+	Role  string `json:"role" validate:"required,oneof=advertiser publisher"`
 	OTP   string `json:"otp" validate:"required,len=6,numeric"`
 }
 

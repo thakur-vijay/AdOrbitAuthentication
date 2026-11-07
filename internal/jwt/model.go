@@ -17,6 +17,7 @@ type RefreshToken struct {
 
 type Claims struct {
 	UserID string `json:"user_id"`
+	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -27,6 +28,7 @@ type RegistrationClaims struct {
 
 type Principal struct {
 	UserID string
+	Role   string
 }
 
 type TokenPair struct {

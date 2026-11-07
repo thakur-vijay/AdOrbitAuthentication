@@ -96,14 +96,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // @Router /auth/logout [post]
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, ok := middleware.UserID(ctx)
+	principal, ok := middleware.GetPrincipal(r.Context())
 	if !ok {
-		response.WriteError(w, apperrors.NewUnauthorized(
-			"Authentication required.",
-			nil,
-		))
+		response.Write(w, http.StatusUnauthorized, "authentication failed")
 		return
 	}
+
+	userID := principal.UserID
 
 	if err := h.service.Logout(ctx, userID); err != nil {
 		response.WriteError(w, err)
@@ -165,13 +164,21 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var refreshRequest RefreshTokenRequestDTO
 	ctx := r.Context()
 
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.Write(w, http.StatusUnauthorized, "authentication failed")
+		return
+	}
+
+	role := principal.Role
+
 	if err := response.DecodeJSONAndValidate(r, &refreshRequest); err != nil {
 		appError := apperrors.NewBadRequest(err.Error(), nil)
 		response.Write(w, appError.StatusCode, appError.Message)
 		return
 	}
 
-	tokens, err := h.service.Refresh(ctx, refreshRequest)
+	tokens, err := h.service.Refresh(ctx, role, refreshRequest)
 	if err != nil {
 		response.WriteError(w, err)
 		return

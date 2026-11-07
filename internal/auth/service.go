@@ -211,12 +211,12 @@ func (s *Service) Login(
 		if verified {
 			switch credential.Status {
 			case Active:
-				user, err := s.fetchUser(ctx, credential.UserID, credential.IsEmailVerified)
+				user, err := s.fetchUser(ctx, credential.UserID, request.Role, credential.IsEmailVerified)
 				if err != nil {
 					return nil, err
 				}
 				if credential.IsEmailVerified {
-					tokens, err := s.createSessions(ctx, credential.UserID)
+					tokens, err := s.createSessions(ctx, credential.UserID, user.Role)
 					if err != nil {
 						return nil, err
 					}
@@ -276,13 +276,13 @@ func (s *Service) VerifyOTP(ctx context.Context, dto VerifyOTPDTO) (*LoginRespon
 		return nil, err
 	}
 
-	user, err := s.fetchUser(ctx, credentials.UserID, true)
+	user, err := s.fetchUser(ctx, credentials.UserID, dto.Role, true)
 
 	if err != nil {
 		return nil, err
 	}
 
-	tokens, err := s.createSessions(ctx, credentials.UserID)
+	tokens, err := s.createSessions(ctx, credentials.UserID, user.Role)
 
 	if err != nil {
 		return nil, err
@@ -333,9 +333,10 @@ func (s *Service) Logout(
 
 func (s *Service) Refresh(
 	ctx context.Context,
+	role string,
 	dto RefreshTokenRequestDTO,
 ) (*RefreshTokenResponseDTO, error) {
-	pair, err := s.jwtService.RefreshSession(ctx, dto.RefreshToken)
+	pair, err := s.jwtService.RefreshSession(ctx, dto.RefreshToken, role)
 
 	if err != nil {
 		return nil, err
@@ -348,14 +349,14 @@ func (s *Service) Refresh(
 }
 
 // /helping methods
-func (s *Service) createSessions(ctx context.Context, userID string) (*jwt.TokenPair, error) {
+func (s *Service) createSessions(ctx context.Context, userID, role string) (*jwt.TokenPair, error) {
 	sessionCtx, sessionCancel := context.WithTimeout(
 		ctx,
 		5*time.Second,
 	)
 	defer sessionCancel()
 
-	tokens, err := s.jwtService.CreateSession(sessionCtx, userID)
+	tokens, err := s.jwtService.CreateSession(sessionCtx, userID, role)
 
 	if err != nil {
 		log.Printf(
@@ -377,7 +378,7 @@ func (s *Service) sendOTP(ctx context.Context, userID, email string) error {
 	return s.otpService.Send(otpCtx, userID, email)
 }
 
-func (s *Service) fetchUser(ctx context.Context, userID string, isEmailVerified bool) (*LoginUserDTO, error) {
+func (s *Service) fetchUser(ctx context.Context, userID, role string, isEmailVerified bool) (*LoginUserDTO, error) {
 	rabbitCtx, rabbitCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer rabbitCancel()
 	user, err := s.rabbitMQ.FetchUser(
