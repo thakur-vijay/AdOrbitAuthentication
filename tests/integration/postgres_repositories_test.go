@@ -14,7 +14,6 @@ import (
 	"github.com/adorbit/authentication/internal/auth"
 	emailotp "github.com/adorbit/authentication/internal/emailOtp"
 	appjwt "github.com/adorbit/authentication/internal/jwt"
-	"github.com/adorbit/authentication/internal/sessions"
 )
 
 func TestPostgresCredentialRepositoryPersistsAndEnforcesConstraints(t *testing.T) {
@@ -197,50 +196,6 @@ func TestPostgresConcurrentRefreshRotationHasOneWinner(t *testing.T) {
 	}
 }
 
-func TestPostgresLegacySessionRepositoryCRUD(t *testing.T) {
-	db := postgresFixture(t)
-	repository := sessions.NewRepository(db)
-	ctx := context.Background()
-	now := time.Now().UTC()
-	session := sessions.Session{
-		ID:               mustUUID(t),
-		UserID:           mustUUID(t),
-		AccessTokenHash:  "access-hash",
-		RefreshTokenHash: "refresh-hash",
-		ExpiresAt:        now.Add(15 * time.Minute).Format(time.RFC3339),
-		RefreshExpiresAt: now.Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		CreatedAt:        now.Format(time.RFC3339),
-	}
-	if err := repository.Create(ctx, session); err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-	byAccess, err := repository.GetByAccessTokenHash(ctx, session.AccessTokenHash)
-	if err != nil || byAccess.ID != session.ID || byAccess.UserID != session.UserID || byAccess.RevokedAt != nil {
-		t.Fatalf("GetByAccessTokenHash() = (%#v, %v)", byAccess, err)
-	}
-	byRefresh, err := repository.GetByRefreshTokenHash(ctx, session.RefreshTokenHash)
-	if err != nil || byRefresh.ID != session.ID {
-		t.Fatalf("GetByRefreshTokenHash() = (%#v, %v)", byRefresh, err)
-	}
-	if _, err := repository.GetByAccessTokenHash(ctx, "absent-hash"); !errors.Is(err, sql.ErrNoRows) {
-		t.Fatalf("GetByAccessTokenHash(missing) error = %v, want sql.ErrNoRows", err)
-	}
-	if err := repository.UpdateTokens(ctx, session.ID, "new-access", "new-refresh", now.Add(time.Minute).Format(time.RFC3339)); err != nil {
-		t.Fatalf("UpdateTokens() error = %v", err)
-	}
-	updated, err := repository.GetByRefreshTokenHash(ctx, "new-refresh")
-	if err != nil || updated.AccessTokenHash != "new-access" {
-		t.Fatalf("updated session = (%#v, %v)", updated, err)
-	}
-	if err := repository.Revoke(ctx, session.ID); err != nil {
-		t.Fatalf("Revoke() error = %v", err)
-	}
-	revoked, err := repository.GetByAccessTokenHash(ctx, "new-access")
-	if err != nil || revoked.RevokedAt == nil {
-		t.Fatalf("revoked session = (%#v, %v), want revoked timestamp", revoked, err)
-	}
-}
-
 func TestPostgresOTPRepositoryCooldownAttemptsAndOneTimeVerification(t *testing.T) {
 	db := postgresFixture(t)
 	repository := emailotp.NewRepository(db)
@@ -315,14 +270,14 @@ func TestPostgresOTPRepositoryCooldownAttemptsAndOneTimeVerification(t *testing.
 
 func TestPostgresMigrationsApplyAndRollback(t *testing.T) {
 	db := postgresFixture(t)
-	for _, table := range []string{"credentials", "sessions", "jwt_refresh_tokens", "email_otps"} {
+	for _, table := range []string{"credentials", "jwt_refresh_tokens", "email_otps"} {
 		var found bool
 		if err := db.QueryRow(`SELECT to_regclass(current_schema() || '.' || $1) IS NOT NULL`, table).Scan(&found); err != nil || !found {
 			t.Fatalf("table %s was not created by migrations: found=%v error=%v", table, found, err)
 		}
 	}
 	applyDownMigrations(t, db)
-	for _, table := range []string{"credentials", "sessions", "jwt_refresh_tokens", "email_otps"} {
+	for _, table := range []string{"credentials", "jwt_refresh_tokens", "email_otps"} {
 		assertNoTable(t, db, table)
 	}
 }

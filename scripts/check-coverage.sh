@@ -58,7 +58,6 @@ check_floor "security" "github.com/adorbit/authentication/internal/security/" 90
 check_floor "JWT and refresh" "github.com/adorbit/authentication/internal/jwt/" 65
 check_floor "authentication" "github.com/adorbit/authentication/internal/auth/" 40
 check_floor "email OTP" "github.com/adorbit/authentication/internal/emailOtp/" 45
-check_floor "legacy sessions" "github.com/adorbit/authentication/internal/sessions/" 60
 check_floor "RabbitMQ client" "github.com/adorbit/authentication/internal/messaging/" 45
 
 if ((failed)); then
