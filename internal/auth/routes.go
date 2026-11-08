@@ -46,7 +46,10 @@ func RegisterRoutes(
 	mux.HandleFunc("POST /auth/resendOTP", handler.ResendOTP)
 
 	// Refresh
-	mux.HandleFunc("POST /auth/refresh", handler.Refresh)
+	mux.Handle(
+		"POST /auth/refresh",
+		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Refresh)),
+	)
 
 	// Verify OTP
 	verifyOTPHandler := idempotencyMiddleware.RequireIdempotencyKey(

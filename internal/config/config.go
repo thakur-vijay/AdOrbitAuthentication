@@ -10,12 +10,11 @@ import (
 )
 
 type Config struct {
-	Port             string
-	DatabaseURL      string
-	JWTPrivateKey    string
-	JWTPublicKey     string
-	UsersGRPCAddress string
-	RabbitMQURL      string
+	Port          string
+	DatabaseURL   string
+	JWTPrivateKey string
+	JWTPublicKey  string
+	RabbitMQURL   string
 
 	IdempotencyScopeKey      []byte
 	IdempotencyEncryptionKey []byte
@@ -41,12 +40,11 @@ func Load() (*Config, error) {
 		return nil, errors.New("OTP_HMAC_SECRET must be 64 hexadecimal characters")
 	}
 	cfg := &Config{
-		Port:             port,
-		DatabaseURL:      getEnv("DATABASE_URL", ""),
-		JWTPrivateKey:    strings.ReplaceAll(os.Getenv("JWT_PRIVATE_KEY"), `\n`, "\n"),
-		JWTPublicKey:     strings.ReplaceAll(os.Getenv("JWT_PUBLIC_KEY"), `\n`, "\n"),
-		UsersGRPCAddress: getEnv("USERS_GRPC_ADDRESS", "localhost:9090"),
-		RabbitMQURL:      getEnv("RABBITMQ_URL", ""),
+		Port:          port,
+		DatabaseURL:   getEnv("DATABASE_URL", ""),
+		JWTPrivateKey: strings.ReplaceAll(os.Getenv("JWT_PRIVATE_KEY"), `\n`, "\n"),
+		JWTPublicKey:  strings.ReplaceAll(os.Getenv("JWT_PUBLIC_KEY"), `\n`, "\n"),
+		RabbitMQURL:   getEnv("RABBITMQ_URL", ""),
 
 		IdempotencyScopeKey:      scopeKey,
 		IdempotencyEncryptionKey: encryptionKey,

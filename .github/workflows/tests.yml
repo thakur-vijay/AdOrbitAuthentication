@@ -1,0 +1,119 @@
+name: Go tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit and static checks
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify module files
+        run: go mod tidy -diff
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Run static analysis
+        run: go vet ./...
+
+      - name: Run unit tests
+        run: go test ./...
+
+      - name: Run unit tests with the race detector
+        run: go test -race ./...
+
+      - name: Repeat unit tests to find flakes
+        run: go test -count=10 ./...
+
+  integration:
+    name: PostgreSQL, RabbitMQ, and workflow integration
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: adorbit_test
+          POSTGRES_PASSWORD: test_only_password
+          POSTGRES_DB: adorbit_auth_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U adorbit_test -d adorbit_auth_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 10s
+
+      rabbitmq:
+        image: rabbitmq:4-management
+        env:
+          RABBITMQ_DEFAULT_USER: adorbit_test
+          RABBITMQ_DEFAULT_PASS: test_only_password
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 15s
+
+    env:
+      TEST_DATABASE_URL: postgres://adorbit_test:test_only_password@localhost:5432/adorbit_auth_test?sslmode=disable
+      TEST_RABBITMQ_URL: amqp://adorbit_test:test_only_password@localhost:5672/
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify module files
+        run: go mod tidy -diff
+
+      - name: Run unit, repository, messaging, and workflow integration tests
+        run: go test -tags=integration -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
+
+      - name: Enforce coverage floors
+        run: bash scripts/check-coverage.sh coverage.out
+
+      - name: Run integration tests with the race detector
+        run: go test -race -tags=integration ./tests/integration
+
+      - name: Repeat integration tests to find flakes
+        run: go test -tags=integration -count=3 ./tests/integration
+
+      - name: Run one-iteration benchmarks
+        run: go test -tags=integration -run='^$' -bench=. -benchmem -benchtime=1x ./...
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: go-coverage
+          path: coverage.out
+          if-no-files-found: warn

@@ -21,9 +21,15 @@ definitions:
         type: string
       password:
         type: string
+      role:
+        enum:
+        - advertiser
+        - publisher
+        type: string
     required:
     - email
     - password
+    - role
     type: object
   auth.LoginResponseDTO:
     properties:
@@ -49,6 +55,20 @@ definitions:
       role:
         type: string
       updated_at:
+        type: string
+    type: object
+  auth.RefreshTokenRequestDTO:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  auth.RefreshTokenResponseDTO:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
         type: string
     type: object
   auth.ResendOTPDTO:
@@ -83,9 +103,15 @@ definitions:
         type: string
       otp:
         type: string
+      role:
+        enum:
+        - advertiser
+        - publisher
+        type: string
     required:
     - email
     - otp
+    - role
     type: object
 host: localhost:8081
 info:
@@ -98,8 +124,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticates a user and returns session tokens when email verification
-        is complete.
+      description: |-
+        Authenticates a user using email and password.
+        Returns authentication tokens when email verification is complete.
       parameters:
       - description: Login credentials
         in: body
@@ -111,7 +138,7 @@ paths:
       - application/json
       responses:
         "202":
-          description: Accepted
+          description: Authentication accepted
           schema:
             allOf:
             - $ref: '#/definitions/auth.APIResponse'
@@ -120,29 +147,129 @@ paths:
                   $ref: '#/definitions/auth.LoginResponseDTO'
               type: object
         "400":
-          description: Bad Request
+          description: Invalid request or validation failure
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "401":
-          description: Unauthorized
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "403":
+          description: Email verification required or account disabled
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "409":
-          description: Conflict
+          description: Account conflict
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "413":
+          description: Request body exceeds the configured limit
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "415":
+          description: Content-Type must be application/json
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "429":
+          description: Too many login attempts
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
-      summary: Login user
+      summary: Authenticate a user
+      tags:
+      - Authentication
+  /auth/logout:
+    post:
+      description: Invalidates the authenticated user's active session.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logged out successfully
+          schema:
+            $ref: '#/definitions/auth.APIResponse'
+        "401":
+          description: Missing, invalid, or expired access token
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Log out the authenticated user
+      tags:
+      - Authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Exchanges a valid refresh token for a new access token and refresh token.
+        Requires a valid access token to identify the caller role; the submitted refresh token is validated separately.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshTokenRequestDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tokens refreshed successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/auth.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.RefreshTokenResponseDTO'
+              type: object
+        "400":
+          description: Invalid request or missing refresh token
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "401":
+          description: Missing or invalid access token, or invalid refresh token
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "409":
+          description: Refresh token rotation conflict
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "413":
+          description: Request body exceeds the configured limit
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "415":
+          description: Content-Type must be application/json
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "429":
+          description: Too many refresh attempts
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Refresh authentication tokens
       tags:
       - Authentication
   /auth/resendOTP:
     post:
       consumes:
       - application/json
-      description: Sends a new email verification OTP.
+      description: |-
+        Generates and sends a new email verification OTP.
+        Requests are subject to resend cooldown and rate limiting.
       parameters:
       - description: Email address
         in: body
@@ -154,15 +281,35 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: OTP sent successfully
           schema:
             $ref: '#/definitions/auth.APIResponse'
         "400":
-          description: Bad Request
+          description: Invalid request or email format
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "404":
+          description: Account not found
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "409":
+          description: Email already verified or resend cooldown active
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "413":
+          description: Request body exceeds the configured limit
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "415":
+          description: Content-Type must be application/json
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "429":
+          description: Too many OTP requests
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
       summary: Resend email verification OTP
@@ -172,10 +319,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new advertiser or publisher account and initiates email
-        verification.
+      description: |-
+        Creates a new advertiser or publisher account and initiates email verification.
+        Requires an Idempotency-Key to safely handle retries.
       parameters:
-      - description: UUID used to safely retry signup
+      - description: Unique UUID for request idempotency
         in: header
         name: Idempotency-Key
         required: true
@@ -190,7 +338,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: User created successfully
           schema:
             allOf:
             - $ref: '#/definitions/auth.APIResponse'
@@ -199,15 +347,31 @@ paths:
                   $ref: '#/definitions/auth.LoginResponseDTO'
               type: object
         "400":
-          description: Bad Request
+          description: Invalid request or missing idempotency key
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "409":
-          description: Conflict
+          description: Email already registered or idempotency conflict
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "413":
+          description: Request body exceeds the configured limit
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "415":
+          description: Content-Type must be application/json
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "422":
+          description: Validation failed
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "429":
+          description: Rate limit exceeded
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
       summary: Register a new user
@@ -217,14 +381,17 @@ paths:
     post:
       consumes:
       - application/json
-      description: Verifies the email verification OTP and completes authentication.
+      description: |-
+        Verifies the email address using the OTP sent during registration.
+        Successfully verifying the OTP completes email verification and returns authentication tokens.
+        Requires an Idempotency-Key to safely handle retries.
       parameters:
-      - description: UUID used to safely retry OTP verification
+      - description: Unique UUID for request idempotency
         in: header
         name: Idempotency-Key
         required: true
         type: string
-      - description: Email and OTP
+      - description: Email address and verification OTP
         in: body
         name: request
         required: true
@@ -234,7 +401,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Email verified successfully
           schema:
             allOf:
             - $ref: '#/definitions/auth.APIResponse'
@@ -243,18 +410,42 @@ paths:
                   $ref: '#/definitions/auth.LoginResponseDTO'
               type: object
         "400":
-          description: Bad Request
+          description: Invalid request, OTP format, or missing idempotency key
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "401":
-          description: Unauthorized
+          description: Invalid or expired OTP
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "404":
+          description: Account or OTP not found
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "409":
+          description: OTP already consumed or idempotency conflict
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "413":
+          description: Request body exceeds the configured limit
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "415":
+          description: Content-Type must be application/json
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "422":
+          description: Validation failed
+          schema:
+            $ref: '#/definitions/auth.APIErrorResponse'
+        "429":
+          description: Too many verification attempts
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
-      summary: Verify email OTP
+      summary: Verify email address using OTP
       tags:
       - Authentication
 schemes:

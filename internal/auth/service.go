@@ -265,6 +265,9 @@ func (s *Service) VerifyOTP(ctx context.Context, dto VerifyOTPDTO) (*LoginRespon
 	if err != nil {
 		return nil, err
 	}
+	if credentials == nil {
+		return nil, apperrors.NewNotFound("Credential not found.", nil)
+	}
 	err = s.otpService.Verify(ctx, credentials.UserID, dto.OTP)
 	if err != nil {
 		return nil, err
@@ -303,6 +306,9 @@ func (s *Service) ResendOTP(
 	credentials, err := s.repository.FetchByEmail(ctx, dto.Email)
 	if err != nil {
 		return err
+	}
+	if credentials == nil {
+		return apperrors.NewNotFound("Credential not found.", nil)
 	}
 
 	if credentials.Status != Active {

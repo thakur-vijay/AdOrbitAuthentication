@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/auth/login": {
             "post": {
-                "description": "Authenticates a user and returns session tokens when email verification is complete.",
+                "description": "Authenticates a user using email and password.\nReturns authentication tokens when email verification is complete.",
                 "consumes": [
                     "application/json"
                 ],
@@ -27,7 +27,7 @@ const docTemplate = `{
                 "tags": [
                     "Authentication"
                 ],
-                "summary": "Login user",
+                "summary": "Authenticate a user",
                 "parameters": [
                     {
                         "description": "Login credentials",
@@ -41,7 +41,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "202": {
-                        "description": "Accepted",
+                        "description": "Authentication accepted",
                         "schema": {
                             "allOf": [
                                 {
@@ -59,25 +59,179 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request or validation failure",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Email verification required or account disabled",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Account conflict",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request body exceeds the configured limit",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many login attempts",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Invalidates the authenticated user's active session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Log out the authenticated user",
+                "responses": {
+                    "200": {
+                        "description": "Logged out successfully",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired access token",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Exchanges a valid refresh token for a new access token and refresh token.\nRequires a valid access token to identify the caller role; the submitted refresh token is validated separately.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Refresh authentication tokens",
+                "parameters": [
+                    {
+                        "description": "Refresh token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.RefreshTokenRequestDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tokens refreshed successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auth.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auth.RefreshTokenResponseDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or missing refresh token",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid access token, or invalid refresh token",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Refresh token rotation conflict",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request body exceeds the configured limit",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many refresh attempts",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
@@ -87,7 +241,7 @@ const docTemplate = `{
         },
         "/auth/resendOTP": {
             "post": {
-                "description": "Sends a new email verification OTP.",
+                "description": "Generates and sends a new email verification OTP.\nRequests are subject to resend cooldown and rate limiting.",
                 "consumes": [
                     "application/json"
                 ],
@@ -111,19 +265,49 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "OTP sent successfully",
                         "schema": {
                             "$ref": "#/definitions/auth.APIResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request or email format",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Account not found",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Email already verified or resend cooldown active",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request body exceeds the configured limit",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many OTP requests",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
@@ -133,7 +317,7 @@ const docTemplate = `{
         },
         "/auth/signup": {
             "post": {
-                "description": "Creates a new advertiser or publisher account and initiates email verification.",
+                "description": "Creates a new advertiser or publisher account and initiates email verification.\nRequires an Idempotency-Key to safely handle retries.",
                 "consumes": [
                     "application/json"
                 ],
@@ -147,7 +331,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "UUID used to safely retry signup",
+                        "description": "Unique UUID for request idempotency",
                         "name": "Idempotency-Key",
                         "in": "header",
                         "required": true
@@ -164,7 +348,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "User created successfully",
                         "schema": {
                             "allOf": [
                                 {
@@ -182,19 +366,43 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request or missing idempotency key",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Email already registered or idempotency conflict",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request body exceeds the configured limit",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
@@ -204,7 +412,7 @@ const docTemplate = `{
         },
         "/auth/verifyOTP": {
             "post": {
-                "description": "Verifies the email verification OTP and completes authentication.",
+                "description": "Verifies the email address using the OTP sent during registration.\nSuccessfully verifying the OTP completes email verification and returns authentication tokens.\nRequires an Idempotency-Key to safely handle retries.",
                 "consumes": [
                     "application/json"
                 ],
@@ -214,17 +422,17 @@ const docTemplate = `{
                 "tags": [
                     "Authentication"
                 ],
-                "summary": "Verify email OTP",
+                "summary": "Verify email address using OTP",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "UUID used to safely retry OTP verification",
+                        "description": "Unique UUID for request idempotency",
                         "name": "Idempotency-Key",
                         "in": "header",
                         "required": true
                     },
                     {
-                        "description": "Email and OTP",
+                        "description": "Email address and verification OTP",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -235,7 +443,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Email verified successfully",
                         "schema": {
                             "allOf": [
                                 {
@@ -253,19 +461,55 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request, OTP format, or missing idempotency key",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Invalid or expired OTP",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Account or OTP not found",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "OTP already consumed or idempotency conflict",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request body exceeds the configured limit",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/auth.APIErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many verification attempts",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/auth.APIErrorResponse"
                         }
@@ -302,7 +546,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "email",
-                "password"
+                "password",
+                "role"
             ],
             "properties": {
                 "email": {
@@ -310,6 +555,13 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "advertiser",
+                        "publisher"
+                    ]
                 }
             }
         },
@@ -349,6 +601,28 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.RefreshTokenRequestDTO": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.RefreshTokenResponseDTO": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "refresh_token": {
                     "type": "string"
                 }
             }
@@ -395,7 +669,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "email",
-                "otp"
+                "otp",
+                "role"
             ],
             "properties": {
                 "email": {
@@ -403,6 +678,13 @@ const docTemplate = `{
                 },
                 "otp": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "advertiser",
+                        "publisher"
+                    ]
                 }
             }
         }
