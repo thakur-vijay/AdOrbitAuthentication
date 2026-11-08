@@ -385,6 +385,7 @@ func (s *Service) fetchUser(ctx context.Context, userID, role string, isEmailVer
 		rabbitCtx,
 		messaging.FetchUserRequest{
 			UserID: userID,
+			Role:   role,
 		},
 	)
 
