@@ -13,7 +13,6 @@ require (
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
 	github.com/thakur-vijay/adorbit-go v0.1.7
-	github.com/thakur-vijay/adorbit-go/idempotency v0.1.3
 	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2
 )
 
