@@ -1,8 +1,8 @@
 CREATE TABLE
     email_otps (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-        user_id UUID NOT NULL UNIQUE,
-        otp_hash VARCHAR(64) NOT NULL,
+        user_id UUID NOT NULL REFERENCES credentials (user_id) ON DELETE CASCADE,
+        otp_hash VARCHAR(255) NOT NULL,
         expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW () + INTERVAL '5 minutes'),
         attempts SMALLINT NOT NULL DEFAULT 0 CHECK (
             attempts >= 0
@@ -13,10 +13,13 @@ CREATE TABLE
             AND max_attempts <= 5
         ),
         verified_at TIMESTAMPTZ,
-        last_sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
-        CONSTRAINT fk_email_otps_credentials FOREIGN KEY (user_id) REFERENCES credentials (user_id) ON DELETE CASCADE
+        CONSTRAINT email_otps_user_id_unique UNIQUE (user_id)
     );
 
 CREATE INDEX idx_email_otps_expires_at ON email_otps (expires_at);
+
+CREATE INDEX idx_email_otps_unverified ON email_otps (user_id, expires_at)
+WHERE
+    verified_at IS NULL;

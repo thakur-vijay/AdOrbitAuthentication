@@ -41,15 +41,13 @@ func TestJWTMiddlewareValidatesBearerTokenAndSetsPrincipal(t *testing.T) {
 	})
 	protected := jwtMiddleware.RequireAuth(next)
 	validClaims := appjwt.Claims{
-		UserID: "user-42",
-		Role:   "publisher",
-		RegisteredClaims: jwtlib.RegisteredClaims{
-			Issuer:    issuer,
-			Subject:   "user-42",
-			IssuedAt:  jwtlib.NewNumericDate(time.Now().Add(-time.Minute)),
-			NotBefore: jwtlib.NewNumericDate(time.Now().Add(-time.Minute)),
-			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Minute)),
-		},
+		UserID:    "user-42",
+		Role:      "publisher",
+		Issuer:    issuer,
+		Subject:   "user-42",
+		IssuedAt:  jwtlib.NewNumericDate(time.Now().Add(-time.Minute)),
+		NotBefore: jwtlib.NewNumericDate(time.Now().Add(-time.Minute)),
+		ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Minute)),
 	}
 	validToken, err := jwtlib.NewWithClaims(jwtlib.SigningMethodRS256, validClaims).SignedString(key)
 	if err != nil {
