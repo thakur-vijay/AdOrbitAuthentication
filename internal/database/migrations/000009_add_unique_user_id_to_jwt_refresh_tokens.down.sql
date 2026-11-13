@@ -1,0 +1,2 @@
+ALTER TABLE jwt_refresh_tokens
+DROP CONSTRAINT uq_jwt_refresh_tokens_user_id;
