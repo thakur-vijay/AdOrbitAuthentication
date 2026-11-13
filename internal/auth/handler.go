@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 
@@ -53,6 +54,7 @@ func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	createdUser, err := h.service.Signup(ctx, signupRequest)
 	if err != nil {
+		log.Println(err.Error())
 		response.WriteError(w, err)
 		return
 	}
