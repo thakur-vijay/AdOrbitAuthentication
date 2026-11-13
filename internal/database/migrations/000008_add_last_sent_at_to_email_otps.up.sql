@@ -1,0 +1,2 @@
+ALTER TABLE email_otps
+ADD COLUMN last_sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW ();
