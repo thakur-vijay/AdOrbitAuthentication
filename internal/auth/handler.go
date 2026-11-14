@@ -166,7 +166,6 @@ func (h *Handler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 // @Tags Authentication
 // @Accept json
 // @Produce json
-// @Security BearerAuth
 // @Param request body RefreshTokenRequestDTO true "Refresh token"
 // @Success 200 {object} APIResponse{data=RefreshTokenResponseDTO} "Tokens refreshed successfully"
 // @Failure 400 {object} APIErrorResponse "Invalid request or missing refresh token"
@@ -179,22 +178,13 @@ func (h *Handler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 // @Router /auth/refresh [post]
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var refreshRequest RefreshTokenRequestDTO
-	ctx := r.Context()
-
-	principal, ok := middleware.GetPrincipal(r.Context())
-	if !ok {
-		response.Write(w, http.StatusUnauthorized, "authentication failed")
-		return
-	}
-
-	role := principal.Role
 
 	if err := decodeJSONRequest(w, r, &refreshRequest); err != nil {
 		writeDecodeError(w, err)
 		return
 	}
 
-	tokens, err := h.service.Refresh(ctx, role, refreshRequest)
+	tokens, err := h.service.Refresh(r.Context(), refreshRequest)
 	if err != nil {
 		response.WriteError(w, err)
 		return

@@ -2,6 +2,7 @@ CREATE TABLE
     IF NOT EXISTS jwt_refresh_tokens (
         id UUID PRIMARY KEY,
         user_id UUID NOT NULL,
+        role TEXT NOT NULL DEFAULT 'advertiser' CHECK (role IN ('advertiser', 'publisher')),
         token_hash CHAR(64) NOT NULL UNIQUE,
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),

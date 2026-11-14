@@ -146,11 +146,6 @@
         },
         "/auth/refresh": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Exchanges a valid refresh token for a new access token and refresh token.\nRequires a valid access token to identify the caller role; the submitted refresh token is validated separately.",
                 "consumes": [
                     "application/json"

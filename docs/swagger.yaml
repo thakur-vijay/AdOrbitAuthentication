@@ -258,8 +258,6 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/auth.APIErrorResponse'
-      security:
-      - BearerAuth: []
       summary: Refresh authentication tokens
       tags:
       - Authentication

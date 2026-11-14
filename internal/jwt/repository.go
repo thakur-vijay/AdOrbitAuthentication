@@ -65,6 +65,7 @@ func (r *Repository) GetByHash(
 		SELECT
 			id,
 			user_id,
+			role,
 			token_hash,
 			expires_at,
 			created_at,
@@ -76,6 +77,7 @@ func (r *Repository) GetByHash(
 	).Scan(
 		&token.ID,
 		&token.UserID,
+		&token.Role,
 		&token.TokenHash,
 		&token.ExpiresAt,
 		&token.CreatedAt,

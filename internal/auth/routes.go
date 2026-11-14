@@ -48,7 +48,7 @@ func RegisterRoutes(
 	// Refresh
 	mux.Handle(
 		"POST /auth/refresh",
-		jwtMiddleware.RequireAuth(http.HandlerFunc(handler.Refresh)),
+		http.HandlerFunc(handler.Refresh),
 	)
 
 	// Verify OTP

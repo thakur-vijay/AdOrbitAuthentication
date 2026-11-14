@@ -339,10 +339,9 @@ func (s *Service) Logout(
 
 func (s *Service) Refresh(
 	ctx context.Context,
-	role string,
 	dto RefreshTokenRequestDTO,
 ) (*RefreshTokenResponseDTO, error) {
-	pair, err := s.jwtService.RefreshSession(ctx, dto.RefreshToken, role)
+	pair, err := s.jwtService.RefreshSession(ctx, dto.RefreshToken)
 
 	if err != nil {
 		return nil, err

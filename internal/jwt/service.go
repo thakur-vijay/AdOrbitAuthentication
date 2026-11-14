@@ -190,14 +190,14 @@ func (s *Service) ValidateRefreshToken(
 
 func (s *Service) RefreshSession(
 	ctx context.Context,
-	refreshToken, role string,
+	refreshToken string,
 ) (TokenPair, error) {
 	record, err := s.ValidateRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return TokenPair{}, err
 	}
 
-	newAccessToken, err := s.generateAccessToken(record.UserID, role)
+	newAccessToken, err := s.generateAccessToken(record.UserID, record.Role)
 	if err != nil {
 		return TokenPair{}, err
 	}
