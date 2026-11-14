@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS jwt_refresh_tokens;

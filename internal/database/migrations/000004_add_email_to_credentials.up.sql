@@ -1,2 +1,0 @@
-ALTER TABLE credentials
-ADD COLUMN email TEXT NOT NULL UNIQUE;
